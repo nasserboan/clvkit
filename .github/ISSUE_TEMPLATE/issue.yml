@@ -1,0 +1,58 @@
+name: Issue
+description: A bug, a question, or a feature request
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The most useful bug report is a snippet that fails against
+        `CDNOW_sample.txt`. It ships with the repo, so we can both run it.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of issue is this?
+      options:
+        - Bug
+        - Question
+        - Feature request
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: >-
+        For a bug, the numbers you actually got. For a question, what you are
+        trying to work out. For a feature request, the problem you are stuck on
+        rather than the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: >-
+        If you expected a published estimate, name the paper and the number —
+        `docs/references.md` carries the DOIs. If you expected the API to behave
+        differently, say what you read that led you there.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >-
+        The smallest code that shows it, ideally against `CDNOW_sample.txt`.
+        Leave blank for a question or a feature request.
+      render: python
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: clvkit 0.1.0, Python 3.13.9
+    validations:
+      required: true
