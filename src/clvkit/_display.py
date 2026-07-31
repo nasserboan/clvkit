@@ -163,6 +163,11 @@ def _notes(cb: "CustomerBase", n: int, n_repeat: int) -> list[str]:
     problem is how a notes section teaches people to stop reading it.
     """
     notes = []
+    if _get(cb, "engine") == "dask":
+        notes.append(
+            "summarised with engine='dask' - the event frame was not kept, "
+            "so .split() is unavailable on this base"
+        )
     if n and n_repeat / n < _MOSTLY_ONE_TIME:
         notes.append(
             f"{1 - n_repeat / n:.0%} bought once - the models see them only "

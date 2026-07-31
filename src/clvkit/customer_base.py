@@ -1,11 +1,19 @@
 """CustomerBase — the single input currency every clvkit model consumes."""
 
 import warnings
-from typing import Literal
+from functools import partial
+from typing import TYPE_CHECKING, Literal
 
 import pandas as pd
 
+from clvkit import _engine
 from clvkit._display import describe, signature
+from clvkit._engine import Engine
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from dask.dataframe import DataFrame as DaskDataFrame
 
 OnNegative = Literal["net", "drop", "raise"]
 _ON_NEGATIVE_MODES: tuple[OnNegative, ...] = ("net", "drop", "raise")
@@ -77,6 +85,7 @@ class CustomerBase:
         events: pd.DataFrame | None = None,
         customer_id_col: str = "customer_id",
         amount_col: str | None = "amount",
+        engine: Engine = "pandas",
     ) -> None:
         self._data = data
         self.time_unit = time_unit
@@ -96,6 +105,9 @@ class CustomerBase:
         self._events = events
         self._customer_id_col = customer_id_col
         self._amount_col = amount_col
+        # Which dataframe library did the summarising. Provenance, and the
+        # reason `_events` may be absent — see .split().
+        self.engine = engine
 
     @classmethod
     def from_transactions(
@@ -110,6 +122,7 @@ class CustomerBase:
         observation_period_end: str | pd.Timestamp | None = None,
         datetime_format: str | None = None,
         on_negative: OnNegative = "net",
+        engine: Engine = "pandas",
     ) -> "CustomerBase":
         """Summarise a raw transaction log into RFM plus provenance.
 
@@ -125,11 +138,24 @@ class CustomerBase:
         at the data's daily resolution and reports time in weeks::
 
             CustomerBase.from_transactions(log, time_unit="W", collapse="D")
+
+        ``engine="dask"`` takes a ``dask.dataframe.DataFrame`` instead of a
+        pandas one and never holds the whole log in memory. The summary it
+        returns is an ordinary pandas-backed ``CustomerBase`` — per-customer
+        and small — but it does not retain the event frame, so ``.split()``
+        refuses on it. It needs the optional ``dask`` extra.
+
+        The two engines agree on every value. They differ in exactly two ways,
+        both cosmetic and both tested: rows come back in shuffle order rather
+        than first-appearance order, and the customer id keeps whatever dtype
+        the input frame carried — which Dask itself may have rewritten to
+        ``string[pyarrow]`` on the way in.
         """
         if on_negative not in _ON_NEGATIVE_MODES:
             raise ValueError(
                 f"on_negative must be one of {_ON_NEGATIVE_MODES}, got {on_negative!r}"
             )
+        dd = _engine.resolve(engine, transactions)
 
         # Naming the grain is consent to it; inheriting it silently is the trap.
         collapse_was_implicit = collapse is None
@@ -141,47 +167,86 @@ class CustomerBase:
             [amount_col] if has_monetary else []
         )
         df = transactions[columns].copy()
-        df[datetime_col] = pd.to_datetime(df[datetime_col], format=datetime_format)
+        df[datetime_col] = _engine.to_datetime(
+            df[datetime_col], dd, format=datetime_format
+        )
+
+        last_transaction = df[datetime_col].max()
+        if dd is not None:
+            last_transaction = last_transaction.compute()
 
         if observation_period_end is None:
-            observation_period_end = df[datetime_col].max()
+            observation_period_end = last_transaction
         else:
             observation_period_end = pd.to_datetime(
                 observation_period_end, format=datetime_format
             )
+            # It records when the data was pulled, so it may sit after the last
+            # transaction. Before it, T is measured to a date the log outruns,
+            # and every customer buying later gets recency > T: impossible, and
+            # caught two calls away inside fit(). Refuse it here, where the
+            # cause is still visible.
+            if observation_period_end < last_transaction:
+                raise ValueError(
+                    f"observation_period_end "
+                    f"({observation_period_end.date()}) is before the last "
+                    f"transaction ({last_transaction.date()}). It records when "
+                    f"the data was pulled; it does not truncate the log. To "
+                    f"fit on a calibration window, use "
+                    f"CustomerBase.split(calibration_period_end=...)."
+                )
 
         if has_monetary:
-            if on_negative == "raise" and (df[amount_col] < 0).any():
-                raise ValueError(
-                    "negative amounts found in transactions; "
-                    "pass on_negative='net' or 'drop' to handle them"
-                )
+            if on_negative == "raise":
+                any_negative = (df[amount_col] < 0).any()
+                if dd is not None:
+                    any_negative = any_negative.compute()
+                if any_negative:
+                    raise ValueError(
+                        "negative amounts found in transactions; "
+                        "pass on_negative='net' or 'drop' to handle them"
+                    )
             if on_negative == "drop":
                 df = df[df[amount_col] >= 0]
 
-        df["_bucket"] = df[datetime_col].dt.to_period(collapse)
+        df["_bucket"] = _engine.buckets(df[datetime_col], collapse, dd)
 
         if collapse_was_implicit and _is_finer_than(_CANONICAL_COLLAPSE, collapse):
-            cls._warn_if_the_grain_ate_purchases(df, customer_id_col, collapse)
+            cls._warn_if_the_grain_ate_purchases(df, customer_id_col, collapse, dd)
 
-        if has_monetary:
-            events = df.groupby(
-                [customer_id_col, "_bucket"], sort=False, as_index=False
-            )[amount_col].sum()
-            if on_negative == "net":
-                events = events[events[amount_col] > 0]
+        if dd is not None:
+            # The whole reduction stays lazy down to one row per customer, and
+            # only that lands in memory. There is no event frame to keep.
+            summary = cls._summarize_dask(
+                df,
+                customer_id_col,
+                amount_col,
+                has_monetary,
+                on_negative,
+                observation_period_end,
+                collapse,
+                ratio,
+            )
+            events = None
         else:
-            events = df[[customer_id_col, "_bucket"]].drop_duplicates()
+            if has_monetary:
+                events = df.groupby(
+                    [customer_id_col, "_bucket"], sort=False, as_index=False
+                )[amount_col].sum()
+                if on_negative == "net":
+                    events = events[events[amount_col] > 0]
+            else:
+                events = df[[customer_id_col, "_bucket"]].drop_duplicates()
 
-        summary = cls._summarize(
-            events,
-            customer_id_col,
-            amount_col,
-            has_monetary,
-            observation_period_end,
-            collapse,
-            ratio,
-        )
+            summary = cls._summarize(
+                events,
+                customer_id_col,
+                amount_col,
+                has_monetary,
+                observation_period_end,
+                collapse,
+                ratio,
+            )
 
         return cls(
             summary,
@@ -193,11 +258,15 @@ class CustomerBase:
             events=events,
             customer_id_col=customer_id_col,
             amount_col=amount_col,
+            engine=engine,
         )
 
     @staticmethod
     def _warn_if_the_grain_ate_purchases(
-        df: pd.DataFrame, customer_id_col: str, collapse: str
+        df: pd.DataFrame,
+        customer_id_col: str,
+        collapse: str,
+        dd: "ModuleType | None" = None,
     ) -> None:
         """Say so, with a count, when a coarse grain merged real purchases.
 
@@ -205,8 +274,8 @@ class CustomerBase:
         plausible, the fit still converges, and the loss falls hardest on the
         frequent buyers — the ones whose behaviour the model exists to capture.
         """
-        total = len(df)
-        kept = len(df[[customer_id_col, "_bucket"]].drop_duplicates())
+        deduplicated = df[[customer_id_col, "_bucket"]].drop_duplicates()
+        total, kept = _engine.row_counts((df, deduplicated), dd)
         absorbed = total - kept
         if absorbed == 0:
             return
@@ -250,6 +319,12 @@ class CustomerBase:
         Ages are counted in `collapse` periods — the grain `_bucket` lives at —
         then divided by `ratio` to land in `time_unit`. When the two grains
         agree `ratio` is 1 and the ages stay exact integers.
+
+        Every figure here depends on one customer's events and nothing else,
+        which is what lets the Dask engine run this exact function per
+        partition rather than reimplementing it. `_bucket` arrives as a period
+        from the pandas head and as an ordinal from the Dask one; both answer
+        `astype("int64")` with the ordinal, which is all this reads.
         """
         grouped = events.groupby(customer_id_col, sort=False)["_bucket"]
         first = grouped.min()
@@ -289,6 +364,58 @@ class CustomerBase:
 
         return summary
 
+    @staticmethod
+    def _summarize_dask(
+        df: "DaskDataFrame",
+        customer_id_col: str,
+        amount_col: str | None,
+        has_monetary: bool,
+        on_negative: OnNegative,
+        observation_period_end: pd.Timestamp,
+        collapse: str,
+        ratio: int = 1,
+    ) -> pd.DataFrame:
+        """The same summary, reduced lazily and materialised once.
+
+        Two reductions, and the second is not a Dask reimplementation of
+        `_summarize` — it *is* `_summarize`. Shuffling on the customer id puts
+        every one of a customer's events into a single partition, and every
+        figure in the summary depends on one customer's events alone, so the
+        per-partition answer is the global answer. That is what makes a second
+        engine safe: there is no second set of semantics to drift from the
+        first.
+
+        An earlier draft did reimplement it, with a Dask `groupby.transform`
+        standing in for the `cumcount` that finds a customer's repeat
+        purchases. It agreed with pandas on three partitions and silently
+        stopped aligning on thirty-two.
+
+        Peak memory is one partition of collapsed events plus the finished
+        summary; the raw log is never held whole.
+        """
+        if has_monetary:
+            events = df.groupby([customer_id_col, "_bucket"])[amount_col].sum()
+            events = events.reset_index()
+            if on_negative == "net":
+                events = events[events[amount_col] > 0]
+        else:
+            events = df[[customer_id_col, "_bucket"]].drop_duplicates()
+
+        events = events.shuffle(on=customer_id_col)
+        summarize = partial(
+            CustomerBase._summarize,
+            customer_id_col=customer_id_col,
+            amount_col=amount_col,
+            has_monetary=has_monetary,
+            observation_period_end=observation_period_end,
+            collapse=collapse,
+            ratio=ratio,
+        )
+        # `_meta` is Dask's own zero-row copy of the frame, carrying the real
+        # dtypes. Summarising it is how the output schema gets derived from the
+        # function rather than restated next to it.
+        return events.map_partitions(summarize, meta=summarize(events._meta)).compute()
+
     def split(
         self,
         *,
@@ -306,6 +433,14 @@ class CustomerBase:
         history and are excluded from both outputs.
         """
         if self._events is None:
+            if self.engine == "dask":
+                raise ValueError(
+                    "split() is unavailable on a base summarised with "
+                    "engine='dask': the per-bucket event frame it would need is "
+                    "the memory that engine exists to avoid, so it is not kept. "
+                    "Either re-summarise with engine='pandas', or summarise the "
+                    "calibration and holdout windows as two separate bases."
+                )
             raise ValueError(
                 "split() requires a CustomerBase built via from_transactions"
             )

@@ -19,6 +19,11 @@ dependencies = [
     "scipy>=1.18.0",
 ]
 
+[project.optional-dependencies]
+dask = [
+    "dask[dataframe]>=2025.1.0",
+]
+
 [build-system]
 requires = ["uv_build>=0.11.28,<0.12.0"]
 build-backend = "uv_build"

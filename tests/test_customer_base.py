@@ -121,6 +121,27 @@ def test_on_negative_raise_rejects_negative_amounts():
         CustomerBase.from_transactions(transactions, on_negative="raise")
 
 
+def test_observation_period_end_before_last_transaction_is_refused():
+    transactions = _log([("A", "2020-01-01", 10), ("A", "2020-01-20", 20)])
+
+    with pytest.raises(ValueError, match="does not truncate the log"):
+        CustomerBase.from_transactions(
+            transactions, observation_period_end="2020-01-10"
+        )
+
+
+def test_observation_period_end_after_last_transaction_extends_T():
+    transactions = _log([("A", "2020-01-01", 10), ("A", "2020-01-11", 20)])
+
+    cb = CustomerBase.from_transactions(
+        transactions, observation_period_end="2020-01-21"
+    )
+    row = cb.to_pandas().loc["A"]
+
+    assert row["recency"] == 10
+    assert row["T"] == 20
+
+
 def test_amount_col_none_omits_monetary_value():
     transactions = pd.DataFrame(
         {

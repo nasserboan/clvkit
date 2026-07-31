@@ -83,7 +83,9 @@ Not on PyPI yet. Until it is:
 uv add git+https://github.com/nasserboan/proj-clv
 ```
 
-Python 3.13+.
+Python 3.13+. Four runtime dependencies (numpy, scipy, pandas, matplotlib), and
+one optional extra, `dask`, for logs too big to summarise in pandas. See
+[Large transaction logs](#large-transaction-logs).
 
 ## The whole thing
 
@@ -197,6 +199,44 @@ report time in 'W', or pass collapse='W' to say you meant this.
 
 Naming `collapse` is read as consent, and the warning goes away.
 
+### Large transaction logs
+
+Summarising is the only step here whose cost scales with *transactions* rather
+than with customers. Once the log is an RFM table, the likelihood works on four
+numpy arrays of length `n_customers`, and `scipy.optimize` is sequential
+anyway. So a big log is a summarising problem, and nothing else.
+
+`engine="dask"` moves that one step off pandas:
+
+```console
+uv add 'clvkit[dask]'
+```
+
+```python
+import dask.dataframe as dd
+
+log = dd.read_parquet("transactions/")
+cb = CustomerBase.from_transactions(log, time_unit="W", collapse="D", engine="dask")
+matrix = CohortMatrix.from_transactions(log, period="M", engine="dask")
+```
+
+What comes back is an ordinary pandas-backed `CustomerBase`, per-customer and
+small, so every model, plot and `.to_pandas()` downstream is unchanged. It
+doesn't keep the per-bucket event frame, since that frame is the memory the
+engine exists to avoid, so `.split()` refuses on it and says so. `cb.engine`
+records which engine built it.
+
+Two honest caveats, both measured. The benchmark and its numbers are in
+[`benchmarks/`](benchmarks/README.md):
+
+- **The crossover is around 4 million transactions.** Below it pandas is up to
+  3.7× faster, because Dask's graph and shuffle cost more than they distribute.
+  Above it Dask reaches 1.8–2.2× by 16 million rows.
+- **It doesn't lower the memory ceiling on one machine.** With Dask's default
+  in-process threaded scheduler, peak RSS came out 12–25% *higher* than pandas
+  at every size measured. Raising the ceiling takes a distributed scheduler,
+  with workers in their own processes, in front of the same call.
+
 ## Canon vs. opinion
 
 Two different kinds of decision live inside a CLV library, and conflating them
@@ -294,6 +334,8 @@ from clvkit import (
 **The input currency.** `CustomerBase.from_transactions(...)` → RFM summary
 plus provenance; `.split(calibration_period_end=...)` → a calibration base and
 a holdout frame, excluding customers born in the holdout window.
+`engine="dask"` summarises a log too big for pandas, with the optional `dask`
+extra.
 
 **The CLV engine.** `BGNBD` (flagship) and `MBGNBD` (the never-returner
 variant, where a customer can drop out after their *first* purchase) for
