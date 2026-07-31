@@ -24,6 +24,16 @@ dask = [
     "dask[dataframe]>=2025.1.0",
 ]
 
+# These render as the sidebar links on the PyPI project page, which is where a
+# reader who finds the package before the article lands first. Homepage points
+# at the Pages site rather than the repo, so the article and the install line
+# are one click from PyPI. No Changelog entry until there is a CHANGELOG.md to
+# point at — a 404 in the sidebar is worse than a missing row.
+[project.urls]
+Homepage = "https://nasserboan.github.io/clvkit/"
+Source = "https://github.com/nasserboan/clvkit"
+Issues = "https://github.com/nasserboan/clvkit/issues"
+
 [build-system]
 requires = ["uv_build>=0.11.28,<0.12.0"]
 build-backend = "uv_build"

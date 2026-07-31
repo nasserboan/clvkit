@@ -12,17 +12,17 @@ He wanted two things, and he had been clear about both from the start.
 
 I had answered neither. I had answered a third question (every data scientist has done exactly this once or twice), and nobody had asked it. How much these people spent last year.
 
-## The formula, and the four others
+## The formula, and the five others
 
 What I'd built was the standard thing. If you have ever calculated customer lifetime value, you have probably built it too.
 
     CLV = average ticket × purchase frequency × margin
 
-I called that the standard thing. It isn't even that. I searched "how to calculate customer lifetime value formula" in July 2026, and the first three results gave five different formulas between them.
+I called that the standard thing. It isn't even that. I searched "how to calculate customer lifetime value formula" on 25 July 2026, and the first three results gave five different formulas between them.
 
-Oracle's NetSuite multiplies average transaction size by number of transactions by retention period. HubSpot multiplies customer value by average customer lifespan.
+[Oracle's NetSuite](https://www.netsuite.com/portal/resource/articles/ecommerce/customer-lifetime-value-clv.shtml) multiplies average transaction size by number of transactions by retention period. [HubSpot](https://blog.hubspot.com/service/how-to-calculate-customer-lifetime-value) multiplies customer value by average customer lifespan.
 
-Qualtrics prints three on one page. The last of them is
+[Qualtrics](https://www.qualtrics.com/experience-management/customer/how-to-calculate-customer-lifetime-value/) prints three on one page. The last of them is
 
     GML × retention rate / (1 + discount rate − retention rate)
 
@@ -76,9 +76,13 @@ The papers were free. The Python to run them was not there.
 
 The library everyone had used was archived by its author in June 2024, with its last release dating to 2020.
 
+It was downloaded 248,263 times in the thirty days to 25 July 2026. Downloads, not people. PyPI counts CI runs, mirrors and bots, and I can't tell you how many of those were somebody typing `pip install`. What the number does tell you is that nothing has replaced it. Six years without a release, two years archived, and the pipelines are still pulling it down.
+
 Its successor stopped at a beta in November 2022 and declares `requires_python = ">=3.8,<3.10"`, which means it will not install on anything current.
 
 Both of their READMEs now point readers at a third project, which is Bayesian, and excellent, and asks for a different kind of afternoon than the one I had.
+
+R still has a maintained one. `CLVTools` is on CRAN, updated November 2025, with Pareto/NBD, BG/NBD, Gamma/Gompertz/NBD and covariates in it. The hole isn't in the field. It's in Python.
 
 ## What I built
 
@@ -92,6 +96,10 @@ Fader, Hardie and Lee fit four parameters to 2,357 customers and printed them in
 
 My code, on the same data, gets 0.242595, 4.413602, 0.792922 and 2.425907. If that ever stops being true, the build fails and I find out before anyone else does.
 
+I built it with an AI assistant. You were going to wonder, so here it is before you have to ask.
+
+It didn't decide anything. `opinions.md` is seven places where the literature left a choice open and I had to make one, each with the options and what the choice costs written next to it. The parameter check above is the other half of the answer, and it runs whether I want it to or not. Every model in it cites its paper by DOI in `docs/references.md`, and none of those papers is open access, so a citation is as close as I can honestly get you to the source.
+
 ## How it actually ended
 
 None of which would have saved that meeting.
@@ -99,3 +107,9 @@ None of which would have saved that meeting.
 He went and looked at Google Analytics instead, and made the decision he had already wanted to make.
 
 My analysis was not wrong. It lost to a chart that was already open, in a tool he already trusted, which happened to agree with him. Rigour was never what it was competing on.
+
+---
+
+    uv add clvkit     # or pip install clvkit
+
+Run `probability_alive` on your own transactions. If it disagrees with your spend ranking, you've just found the customers you were about to spend money on for no reason.

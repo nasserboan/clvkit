@@ -1,0 +1,10 @@
+title: clvkit
+description: Buy-till-you-die models for a non-contractual business, in Python that installs.
+theme: jekyll-theme-primer
+lang: en
+
+# This is a project page, not a user page, so it is served from a subpath. The
+# theme builds its stylesheet URL from baseurl, so omitting this ships an
+# unstyled site rather than a broken link anyone would notice in review.
+url: https://nasserboan.github.io
+baseurl: /clvkit
