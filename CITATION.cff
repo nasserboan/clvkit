@@ -1,0 +1,97 @@
+cff-version: 1.2.0
+title: clvkit
+message: >-
+  If you use this software, cite the papers it implements first. They are listed
+  under `references` below and in docs/references.md. Cite the software too only
+  if the implementation itself is what your work depends on.
+type: software
+authors:
+  - alias: nsboan
+    email: nasserboan@gmail.com
+repository-code: https://github.com/nasserboan/proj-clv
+abstract: >-
+  Buy-till-you-die models for customer-base analysis in Python, fit by maximum
+  likelihood and benchmarked against the estimates published with the original
+  papers.
+keywords:
+  - customer lifetime value
+  - buy till you die
+  - BG/NBD
+  - gamma-gamma
+license: BSD-3-Clause
+version: 0.1.0
+references:
+  - type: article
+    title: >-
+      "Counting Your Customers" the Easy Way: An Alternative to the Pareto/NBD
+      Model
+    authors:
+      - family-names: Fader
+        given-names: Peter S.
+      - family-names: Hardie
+        given-names: Bruce G. S.
+      - family-names: Lee
+        given-names: Ka Lok
+    journal: Marketing Science
+    volume: 24
+    issue: 2
+    start: 275
+    end: 284
+    year: 2005
+    doi: 10.1287/mksc.1040.0098
+  - type: report
+    title: The Gamma-Gamma Model of Monetary Value
+    authors:
+      - family-names: Fader
+        given-names: Peter S.
+      - family-names: Hardie
+        given-names: Bruce G. S.
+    year: 2013
+    url: https://www.brucehardie.com/notes/025/gamma_gamma.pdf
+  - type: article
+    title: "RFM and CLV: Using Iso-Value Curves for Customer Base Analysis"
+    authors:
+      - family-names: Fader
+        given-names: Peter S.
+      - family-names: Hardie
+        given-names: Bruce G. S.
+      - family-names: Lee
+        given-names: Ka Lok
+    journal: Journal of Marketing Research
+    volume: 42
+    issue: 4
+    start: 415
+    end: 430
+    year: 2005
+    doi: 10.1509/jmkr.2005.42.4.415
+  - type: article
+    title: Probability Models for Customer-Base Analysis
+    authors:
+      - family-names: Fader
+        given-names: Peter S.
+      - family-names: Hardie
+        given-names: Bruce G. S.
+    journal: Journal of Interactive Marketing
+    volume: 23
+    issue: 1
+    start: 61
+    end: 69
+    year: 2009
+    doi: 10.1016/j.intmar.2008.11.003
+  - type: article
+    title: >-
+      Empirical validation and comparison of models for customer base analysis
+    authors:
+      - family-names: Batislam
+        given-names: Emine Persentili
+      - family-names: Denizel
+        given-names: Meltem
+      - family-names: Filiztekin
+        given-names: Alpay
+    journal: International Journal of Research in Marketing
+    volume: 24
+    issue: 3
+    start: 201
+    end: 209
+    year: 2007
+    doi: 10.1016/j.ijresmar.2006.12.005

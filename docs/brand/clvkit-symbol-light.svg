@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="clvkit">
+  <title>clvkit</title>
+  <!-- Light backgrounds. #4F46E5 gives 6.12:1 on a white page.
+
+       The brackets are drawn as paths rather than set as the text "[ ]", so
+       the mark is centred by geometry instead of by font metrics. Stroke is
+       centred on the path, so with stroke-width 16 the pair spans x 88..168
+       and y 80..176. Both midpoints are 128, the centre of the viewBox. -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#4F46E5"/>
+  <rect x="22" y="22" width="212" height="212" rx="44" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M116 88 H96 V168 H116"/>
+    <path d="M140 88 H160 V168 H140"/>
+  </g>
+</svg>

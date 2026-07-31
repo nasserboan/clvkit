@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="clvkit">
+  <title>clvkit</title>
+  <!-- Dark backgrounds. Same geometry as the light symbol; only the plate
+       changes, to #7C83FF, which gives 6.14:1 on a black page against the
+       light step's 6.12:1 on white. Reusing one purple for both would put
+       either variant at 3.1:1. -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#7C83FF"/>
+  <rect x="22" y="22" width="212" height="212" rx="44" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M116 88 H96 V168 H116"/>
+    <path d="M140 88 H160 V168 H140"/>
+  </g>
+</svg>

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Build artifacts
+/dist/
+/build/
+
+# uv
+.venv/
+
+# macOS
+.DS_Store
+
+# generated sqlite (ingester output)
+data/db/
+
+# Paper PDFs. docs/references.md tells you to download these yourself; none of
+# them carries a redistribution licence, so they must never be committed.
+books/
+*.pdf
+online+retail+ii.zip
+
+# Notebook side-effects: `data/` is the fetched Online Retail II archive (43 MB,
+# CC BY 4.0, fetched not vendored), `output/` is the CSVs and PNGs the notebooks
+# write. Both are reproducible by re-running the notebook.
+examples/data/
+examples/output/

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="clvkit">
+  <title>clvkit</title>
+  <!-- The symbol at favicon scale. Same geometry as clvkit-symbol-light.svg
+       divided by four, so the two never drift apart: stems at 24 and 40, arms
+       to 29 and 35, y 22..42. With stroke 4 the pair spans 22..42 on both
+       axes, centred on 32.
+
+       Two deliberate differences from the 256 symbol. The plate is
+       full-bleed, because browsers and launchers apply their own mask and an
+       inner margin wastes the few pixels there are. The ring is stroke 3.5
+       rather than a scaled 2.5, since a hairline disappears first at 16px and
+       the ring is the part worth keeping. -->
+  <rect width="64" height="64" rx="14" fill="#4F46E5"/>
+  <rect x="5" y="5" width="54" height="54" rx="11" fill="none" stroke="#FFFFFF" stroke-width="3.5"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M29 22 H24 V42 H29"/>
+    <path d="M35 22 H40 V42 H35"/>
+  </g>
+</svg>

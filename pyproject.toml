@@ -1,0 +1,46 @@
+[project]
+name = "clvkit"
+version = "0.1.0"
+description = "CLV engine and cohort-retention over a shared transaction-log contract."
+readme = "README.md"
+authors = [
+    { name = "nsboan", email = "nasserboan@gmail.com" }
+]
+requires-python = ">=3.13"
+# BSD-3-Clause, matching numpy, scipy and pandas. Permissive, so a company can
+# embed this without a legal review, and the no-endorsement clause keeps the
+# project's name out of anyone else's marketing.
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+dependencies = [
+    "matplotlib>=3.11.0",
+    "numpy>=2.5.1",
+    "pandas>=3.0.3",
+    "scipy>=1.18.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+# Tests live in tests/; scoping discovery keeps bare `uv run pytest` (what CI
+# runs) from sweeping up scripts at the repo root that match `*_test.py`.
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# E/F (pycodestyle + pyflakes) are on by default; add import-sorting, pyupgrade, bugbear.
+extend-select = ["I", "UP", "B"]
+
+[dependency-groups]
+# Dev-only, all three of the notebook ones: `pip install clvkit` still gets the
+# four runtime deps and nothing else. `ipykernel` is the kernel nbmake executes
+# against, and `openpyxl` is the engine `pd.read_excel` needs for the Online
+# Retail II workbook — pandas doesn't vendor one.
+dev = [
+    "ipykernel>=7.3.0",
+    "nbmake>=1.5.5",
+    "openpyxl>=3.1.5",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
+]

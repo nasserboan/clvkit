@@ -1,0 +1,29 @@
+# Publishes to PyPI on any `v*` tag using trusted publishing (OIDC) — no API token stored.
+# Before the first release:
+#   1. Configure a PyPI "trusted publisher" for this repo + a GitHub environment named `pypi`.
+#      https://docs.pypi.org/trusted-publishers/
+#   2. Confirm the action versions below are current (checkout / setup-uv).
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for trusted publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      # Was `@v8`, which does not exist — setup-uv publishes moving major tags
+      # only up to v7. This workflow fires on `v*` tags and has never run, so
+      # the first release would have failed here.
+      - uses: astral-sh/setup-uv@v9.0.0
+      - run: uv sync
+      - run: uv run pytest
+      - run: uv build
+      - run: uv publish

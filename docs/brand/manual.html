@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clvkit brand manual</title>
+<!--
+  BRAND MANUAL — clvkit and the kit family.
+  Open in a browser to see the marks; read as text for the rules.
+
+  Every rule below is a measurement or a constraint, not a preference. Where a
+  number appears, the method that produced it appears beside it. When editing
+  the brand, change the rule here first and the SVG second.
+
+  THE SYSTEM IN ONE LINE
+  Brackets wrap the invariant, and the invariant is "kit". Never put brackets
+  in anything a user has to type.
+-->
+<style>
+  :root { --p:#4F46E5; --pd:#7C83FF; --ink:#0F172A; --ink-d:#E2E8F0; --line:#E8E7E2; --mute:#52514E }
+  * { box-sizing:border-box }
+  body { margin:0; font:15px/1.6 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#FCFCFB; color:#0B0B0B }
+  header { padding:44px 44px 26px; border-bottom:1px solid var(--line) }
+  h1 { font-size:26px; margin:0 0 8px; letter-spacing:-0.02em }
+  header .lede { margin:0; font-size:15px; color:var(--mute); max-width:70ch }
+  section { border-bottom:1px solid var(--line); padding-bottom:8px }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:26px 44px 4px }
+  h3 { font-size:15px; margin:16px 44px 2px }
+  p.n { margin:0 44px 14px; font-size:13.5px; color:var(--mute); max-width:74ch }
+  .split { display:grid; grid-template-columns:1fr 1fr; margin-top:8px }
+  .pane { padding:38px 44px; display:flex; align-items:center; justify-content:center; gap:22px; min-height:150px; flex-wrap:wrap }
+  .lt { background:#FCFCFB } .dk { background:#0B0B0B }
+  .col { flex-direction:column; align-items:flex-start; gap:16px }
+  .row { display:flex; align-items:center; gap:16px }
+  /* wordmark set in HTML mirrors the SVG exactly: clv and brackets in brand,
+     kit in ink. Do not simplify this to "brackets only". */
+  .wm { font-weight:800; letter-spacing:-0.02em; white-space:nowrap; font-size:27px; color:var(--p) }
+  .wm .kit { color:var(--ink) }
+  .dk .wm { color:var(--pd) } .dk .wm .kit { color:var(--ink-d) }
+  table { border-collapse:collapse; margin:0 44px 22px; font-size:13.5px; width:calc(100% - 88px) }
+  th,td { text-align:left; padding:8px 18px 8px 0; border-bottom:1px solid #F1F1EE; vertical-align:top }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); white-space:nowrap }
+  code { font:12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background:#F1F1EE; padding:1px 5px; border-radius:4px }
+  .sw { display:inline-block; width:15px; height:15px; border-radius:4px; vertical-align:-3px; margin-right:7px; border:1px solid rgba(0,0,0,.12) }
+  figure { margin:0; text-align:center } figcaption { font-size:10px; color:var(--mute); margin-top:8px }
+  .dk figcaption { color:#94A3B8 }
+  .tab { display:inline-flex; align-items:center; gap:8px; background:#EDEDEA; border-radius:8px 8px 0 0; padding:7px 15px 7px 11px; font-size:12.5px; color:#3F3F46 }
+  .no { color:#B91C1C; font-weight:700 } .yes { color:#0F766E; font-weight:700 }
+  .dont { margin:0 44px 20px; padding:0; list-style:none; font-size:13.5px; max-width:78ch }
+  .dont li { padding:7px 0; border-bottom:1px solid #F1F1EE }
+  .clear { position:relative; display:inline-block; outline:1px dashed #C7D2FE; outline-offset:22px }
+</style>
+
+<header>
+  <h1>clvkit brand manual</h1>
+  <p class="lede">Rules for the <code>kit</code> family: clvkit today, segmentationkit and others later.
+  Everything here renders from the files in this directory, so the page cannot drift from the assets.
+  Each rule states the measurement behind it. Change the rule here before changing an SVG.</p>
+</header>
+
+<section>
+  <h2>The system</h2>
+  <h3>Brackets wrap the invariant</h3>
+  <p class="n">Product names vary; <em>kit</em> is what repeats. Bracketing the constant gives every
+  product one shared token, so the suite reads as a suite. Bracketing the product name instead would
+  force <code>[segmentation]</code> next, and no two marks would share anything.</p>
+  <h3>Brackets never appear in anything typed</h3>
+  <p class="n">The package is <code>clvkit</code>. The logo may say what a terminal cannot.
+  Two concrete reasons, both verifiable in seconds:</p>
+  <table>
+    <tr><th>Typed</th><th>What it actually means</th></tr>
+    <tr><td><code>pip install clv[kit]</code></td><td>the <em>kit</em> extra of a package named <code>clv</code>, per PEP 508</td></tr>
+    <tr><td><code>ls clv[kit]</code></td><td>a shell character class: matches <code>clvi</code>, <code>clvk</code>, <code>clvt</code>. Never <code>clvkit</code>.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>The lockup</h2>
+  <p class="n">Symbol then wordmark, symbol at 72 and wordmark at 64 in height. The symbol is the
+  family and is never redrawn per product; only the word beside it changes.</p>
+  <div class="split">
+    <div class="pane lt">
+      <img src="clvkit-symbol-light.svg" height="72" alt="">
+      <img src="clvkit-light.svg" height="64" alt="clvkit">
+    </div>
+    <div class="pane dk">
+      <img src="clvkit-symbol-dark.svg" height="72" alt="">
+      <img src="clvkit-dark.svg" height="64" alt="clvkit">
+    </div>
+  </div>
+  <h3>Clear space</h3>
+  <p class="n">Keep the height of the symbol's corner radius, 56 units at the 256 viewBox, clear on
+  every side of the lockup. Nothing crosses it.</p>
+</section>
+
+<section>
+  <h2>The family</h2>
+  <p class="n">One symbol, one tracking value, one colour scheme. Only the word changes.
+  <code>segmentation[kit]</code> is the stress case: it is the longest name planned, so any typographic
+  change has to be judged on it rather than on <code>clv[kit]</code>.</p>
+  <div class="split">
+    <div class="pane lt col">
+      <div class="row"><img src="clvkit-symbol-light.svg" height="50" alt=""><span class="wm">clv[<span class="kit">kit</span>]</span></div>
+      <div class="row"><img src="clvkit-symbol-light.svg" height="50" alt=""><span class="wm">segmentation[<span class="kit">kit</span>]</span></div>
+      <div class="row"><img src="clvkit-symbol-light.svg" height="50" alt=""><span class="wm">cohort[<span class="kit">kit</span>]</span></div>
+    </div>
+    <div class="pane dk col">
+      <div class="row"><img src="clvkit-symbol-dark.svg" height="50" alt=""><span class="wm">clv[<span class="kit">kit</span>]</span></div>
+      <div class="row"><img src="clvkit-symbol-dark.svg" height="50" alt=""><span class="wm">segmentation[<span class="kit">kit</span>]</span></div>
+      <div class="row"><img src="clvkit-symbol-dark.svg" height="50" alt=""><span class="wm">cohort[<span class="kit">kit</span>]</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Colour</h2>
+  <p class="n">Two purples, not one. They are stepped so each separates from its own background by the
+  same amount: 6.12:1 and 6.14:1. Reusing a single purple across both modes drops one side to 3.1:1,
+  under the 4.5:1 threshold.</p>
+  <table>
+    <tr><th>Role</th><th>Light</th><th>Contrast</th><th>Dark</th><th>Contrast</th></tr>
+    <tr><td><code>clv</code> and the brackets</td>
+        <td><span class="sw" style="background:#4F46E5"></span><code>#4F46E5</code></td><td>6.12:1</td>
+        <td><span class="sw" style="background:#7C83FF"></span><code>#7C83FF</code></td><td>6.14:1</td></tr>
+    <tr><td><code>kit</code>, inside the brackets</td>
+        <td><span class="sw" style="background:#0F172A"></span><code>#0F172A</code></td><td>17.39:1</td>
+        <td><span class="sw" style="background:#E2E8F0"></span><code>#E2E8F0</code></td><td>15.97:1</td></tr>
+    <tr><td>The ring on the symbol</td>
+        <td><span class="sw" style="background:#FFF"></span><code>#FFFFFF</code></td><td>6.29:1 on plate</td>
+        <td><span class="sw" style="background:#FFF"></span><code>#FFFFFF</code></td><td>3.21:1 on plate</td></tr>
+  </table>
+  <p class="n">The ring is <strong>inset</strong>, never outset. An outset white border disappears against a
+  white page, which is the default background of both GitHub and PyPI.</p>
+</section>
+
+<section>
+  <h2>Typography</h2>
+  <table>
+    <tr><th>Property</th><th>Value</th><th>Why</th></tr>
+    <tr><td>Typeface</td><td>Inter, then the system sans stack</td><td>the SVGs carry a fallback chain; outline the text to the chosen face before any print use</td></tr>
+    <tr><td>Weight</td><td>800 for the name, 600 for the brackets</td><td>lighter brackets keep them as punctuation rather than letters</td></tr>
+    <tr><td>Tracking</td><td><code>-0.02em</code></td><td>chosen against <code>segmentation[kit]</code>: -0.03em jams the counters in <em>mentat</em>, -0.01em reads as running text</td></tr>
+    <tr><td>Case</td><td>always lowercase</td><td>including at the start of a sentence</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>The favicon</h2>
+  <p class="n">The symbol at quarter scale, so the two files cannot drift apart. Two deliberate
+  departures from a straight scale-down: the plate is full-bleed, because browsers and launchers apply
+  their own mask, and the ring is stroke 3.5 rather than the scaled 2.5, since a hairline is the first
+  thing to vanish at 16px.</p>
+  <div class="split">
+    <div class="pane lt">
+      <figure><img src="clvkit-favicon.svg" width="64" height="64" alt=""><figcaption>64</figcaption></figure>
+      <figure><img src="clvkit-favicon.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+      <figure><img src="clvkit-favicon.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+      <figure><img src="clvkit-favicon.svg" width="64" height="64" alt="" style="filter:grayscale(1)"><figcaption>greyscale</figcaption></figure>
+    </div>
+    <div class="pane dk">
+      <figure><span class="tab"><img src="clvkit-favicon.svg" width="16" height="16" alt="">clvkit · CLV for Python</span><figcaption>browser tab, actual size</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Construction</h2>
+  <p class="n">Both bracket glyphs are drawn as paths, never set as the text <code>[ ]</code>. Font metrics
+  centre the line box, not the drawing, which puts the glyph visibly off centre. Paths make the centre
+  arithmetic.</p>
+  <table>
+    <tr><th>File</th><th>viewBox</th><th>Geometry</th><th>Centre</th></tr>
+    <tr><td><code>clvkit-symbol-*.svg</code></td><td>256</td><td>stems at 96 and 160, arms to 116 and 140, y 88–168, stroke 16</td><td>spans 88–168 and 80–176, both midpoints 128</td></tr>
+    <tr><td><code>clvkit-favicon.svg</code></td><td>64</td><td>the same divided by four: stems 24 and 40, arms 29 and 35, y 22–42, stroke 4</td><td>spans 22–42 and 20–44, both midpoints 32</td></tr>
+    <tr><td><code>clvkit-light.svg</code> / <code>-dark</code></td><td>232 × 64</td><td>font-size 52, anchored middle at x 116</td><td>—</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>Assets</h2>
+  <table>
+    <tr><th>File</th><th>Use it for</th></tr>
+    <tr><td><code>clvkit-symbol-light.svg</code> / <code>-dark</code></td><td>the square on its own: avatars, app icons, anywhere square</td></tr>
+    <tr><td><code>clvkit-light.svg</code> / <code>-dark</code></td><td>the wordmark on its own, or beside the symbol as the lockup</td></tr>
+    <tr><td><code>clvkit-favicon.svg</code></td><td>browser tabs and anything under 64px</td></tr>
+  </table>
+  <p class="n">Pick the variant with <code>&lt;picture&gt;</code> and <code>prefers-color-scheme</code>, never by
+  guessing which background the page will have.</p>
+</section>
+
+<section>
+  <h2>Do not</h2>
+  <ul class="dont">
+    <li><span class="no">Do not</span> move the brackets onto the product name. <code>[clv]kit</code> breaks the family.</li>
+    <li><span class="no">Do not</span> put brackets in a package name, an import, a CLI flag or a URL.</li>
+    <li><span class="no">Do not</span> colour <code>kit</code> in the brand purple. Purple marks <code>clv</code> and the brackets; <code>kit</code> is ink.</li>
+    <li><span class="no">Do not</span> reuse one purple across both modes. That is the 3.1:1 case.</li>
+    <li><span class="no">Do not</span> move the ring outside the plate.</li>
+    <li><span class="no">Do not</span> set the brackets as text in a new asset. Draw them.</li>
+    <li><span class="no">Do not</span> tighten the tracking to make a short name look sharper. It is judged on the longest name in the family.</li>
+    <li><span class="no">Do not</span> add a stroke, shadow, gradient or glow. The plate, the ring and the glyph are the whole mark.</li>
+  </ul>
+</section>
+</html>

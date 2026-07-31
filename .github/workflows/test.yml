@@ -1,0 +1,45 @@
+# Runs the suite on every push and pull request, so a red test blocks a merge
+# rather than only surfacing at release time (publish.yml fires on `v*` tags).
+# The golden tests reproduce the published Fader-Hardie CDNOW estimates, so this
+# is also what keeps the README's trust table honest.
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned to a full release, not a moving `@v9`: setup-uv publishes moving
+      # major tags only up to v7, so `@v8` failed to resolve at all — the error
+      # this workflow's first run produced.
+      - uses: astral-sh/setup-uv@v9.0.0
+      # The suite must pass on the light dependency set that `pip install
+      # clvkit` gives you. There are no optional extras.
+      - run: uv sync
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest
+      # The Online Retail II archive is 43 MB and fetched from UCI, which is the
+      # only third party this build depends on being up. Caching it keyed on the
+      # URL means one download for the life of that URL, instead of one per push
+      # and per PR — and it keeps an outage from reddening unrelated changes.
+      - uses: actions/cache@v4
+        with:
+          path: examples/data
+          key: online-retail-ii-${{ hashFiles('examples/online_retail_ii_cohort.ipynb') }}
+          restore-keys: online-retail-ii-
+      # Notebooks as tests: nbmake executes every cell top-to-bottom and fails
+      # the build on the first exception, so the documented examples cannot rot
+      # into code that no longer runs against the library.
+      #
+      # A separate step from `pytest` above because `testpaths = ["tests"]`
+      # deliberately scopes bare discovery, and because these need a wall-clock
+      # budget the unit suite does not: 1.07M rows of Excel take ~20s to parse
+      # before the first cohort matrix is built.
+      - run: uv run pytest --nbmake --nbmake-timeout=900 examples/
