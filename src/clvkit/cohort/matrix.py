@@ -18,7 +18,13 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+from clvkit import _engine
+from clvkit._engine import Engine
+
 if TYPE_CHECKING:
+    from types import ModuleType
+
+    from dask.dataframe import DataFrame as DaskDataFrame
     from matplotlib.axes import Axes
 
 Metric = Literal["retention", "revenue"]
@@ -27,6 +33,26 @@ _METRICS: tuple[Metric, ...] = ("retention", "revenue")
 #: Column-0 of the matrix is the cohort's own period, so this is the label
 #: for "how many periods after acquisition".
 _PERIOD_NUMBER = "period_number"
+
+_EMPTY_LOG = "cannot build a CohortMatrix from an empty transaction log"
+
+
+def _cohort_grid(
+    part: pd.DataFrame, customer_id_col: str, value_col: str
+) -> pd.DataFrame:
+    """One partition's ``(cohort, period_number, value)`` rows.
+
+    Module level so Dask can pickle it, and correct per partition only because
+    the caller shuffled on the customer id first — see ``_cells_dask``.
+    """
+    cohort = part["_bucket"].groupby(part[customer_id_col]).transform("min")
+    return pd.DataFrame(
+        {
+            "_cohort": cohort,
+            _PERIOD_NUMBER: part["_bucket"] - cohort,
+            "_value": part[value_col],
+        }
+    )
 
 
 class CohortMatrix:
@@ -72,6 +98,7 @@ class CohortMatrix:
         datetime_col: str = "date",
         amount_col: str | None = "amount",
         datetime_format: str | None = None,
+        engine: Engine = "pandas",
     ) -> "CohortMatrix":
         """Pivot a raw transaction log into a cohort-by-period matrix.
 
@@ -81,9 +108,15 @@ class CohortMatrix:
 
         The observation window ends at the last transaction in the log, and
         that is what makes a cell unobserved rather than zero.
+
+        ``engine="dask"`` takes a ``dask.dataframe.DataFrame`` and reduces the
+        log without holding it in memory; the matrix it returns is the same
+        pandas one, since a cohort-by-period grid is small whatever built it.
+        It needs the optional ``dask`` extra.
         """
         if metric not in _METRICS:
             raise ValueError(f"metric must be one of {_METRICS}, got {metric!r}")
+        dd = _engine.resolve(engine, transactions)
 
         # Amounts are only touched for revenue, so a timing-only log needs no
         # amount column at all when the metric is retention.
@@ -95,29 +128,82 @@ class CohortMatrix:
             [amount_col] if needs_amount else []
         )
         df = transactions[columns].copy()
-        if df.empty:
-            raise ValueError(
-                "cannot build a CohortMatrix from an empty transaction log"
-            )
-        df[datetime_col] = pd.to_datetime(df[datetime_col], format=datetime_format)
-
-        bucket = df[datetime_col].dt.to_period(period)
-        cohort = bucket.groupby(df[customer_id_col]).transform("min")
-        # Period dtype casts to its integer ordinal, so the difference is a
-        # whole number of periods regardless of calendar length.
-        offset = bucket.astype("int64") - cohort.astype("int64")
-
-        grid = pd.DataFrame(
-            {"_cohort": cohort, _PERIOD_NUMBER: offset, "_id": df[customer_id_col]}
+        # Under Dask, emptiness costs a pass over the log to establish, so it
+        # is caught in `_cells_dask` where a pass is already being made.
+        if dd is None and df.empty:
+            raise ValueError(_EMPTY_LOG)
+        df[datetime_col] = _engine.to_datetime(
+            df[datetime_col], dd, format=datetime_format
         )
-        if needs_amount:
-            grid["_amount"] = df[amount_col].to_numpy()
-            cells = grid.groupby(["_cohort", _PERIOD_NUMBER])["_amount"].sum()
-        else:
-            cells = grid.groupby(["_cohort", _PERIOD_NUMBER])["_id"].nunique()
 
-        matrix = cls._to_triangle(cells.unstack(), bucket.max())
+        if dd is None:
+            bucket = _engine.buckets(df[datetime_col], period, dd)
+            cohort = bucket.groupby(df[customer_id_col]).transform("min")
+            # Period dtype casts to its integer ordinal, so the difference is a
+            # whole number of periods regardless of calendar length.
+            offset = bucket.astype("int64") - cohort.astype("int64")
+
+            grid = pd.DataFrame(
+                {"_cohort": cohort, _PERIOD_NUMBER: offset, "_id": df[customer_id_col]}
+            )
+            if needs_amount:
+                grid["_amount"] = df[amount_col].to_numpy()
+                cells = grid.groupby(["_cohort", _PERIOD_NUMBER])["_amount"].sum()
+            else:
+                cells = grid.groupby(["_cohort", _PERIOD_NUMBER])["_id"].nunique()
+            cells = cells.unstack()
+            end = bucket.max()
+        else:
+            cells, end = cls._cells_dask(
+                df, dd, period, needs_amount, customer_id_col, datetime_col, amount_col
+            )
+
+        matrix = cls._to_triangle(cells, end)
         return cls(matrix, metric=metric, period=period)
+
+    @staticmethod
+    def _cells_dask(
+        df: "DaskDataFrame",
+        dd: "ModuleType",
+        period: str,
+        needs_amount: bool,
+        customer_id_col: str,
+        datetime_col: str,
+        amount_col: str | None,
+    ) -> tuple[pd.DataFrame, pd.Period]:
+        """The same pivot, reduced lazily; returns the small pandas grid.
+
+        Cohorts travel as period *ordinals* rather than periods, because Dask's
+        period-dtype support is thin — they become a ``PeriodIndex`` again on
+        the way out, so the matrix is indistinguishable from the pandas one.
+
+        A customer's cohort is the minimum over that customer's own rows, so
+        the frame is shuffled on the customer id first and the cohort assigned
+        one partition at a time, in pandas. Dask's ``groupby.transform`` looks
+        like it would do this in one line; it returns a result that stops
+        aligning row-for-row once there are enough partitions to shuffle.
+        """
+        bucket = _engine.buckets(df[datetime_col], period, dd)
+        df = df.assign(_bucket=bucket).shuffle(on=customer_id_col)
+
+        value_col = amount_col if needs_amount else customer_id_col
+        meta = _cohort_grid(df._meta, customer_id_col, value_col)
+        grid = df.map_partitions(_cohort_grid, customer_id_col, value_col, meta=meta)
+        grouped = grid.groupby(["_cohort", _PERIOD_NUMBER])["_value"]
+        cells = (grouped.sum() if needs_amount else grouped.nunique()).compute()
+
+        if cells.empty:
+            raise ValueError(_EMPTY_LOG)
+
+        # Every row's bucket is its cohort plus its period number, so the last
+        # bucket in the log is already in this index — no second pass for it.
+        end_ordinal = int(
+            (cells.index.get_level_values(0) + cells.index.get_level_values(1)).max()
+        )
+
+        cells = cells.unstack()
+        cells.index = pd.PeriodIndex.from_ordinals(cells.index, freq=period)
+        return cells, pd.PeriodIndex.from_ordinals([end_ordinal], freq=period)[0]
 
     @staticmethod
     def _to_triangle(
