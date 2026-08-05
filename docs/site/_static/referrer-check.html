@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!--
+  Reach this page through a keyed link, e.g.
+    ?utm_source=hn
+  and it echoes the referrer and utm_* the browser sends. Those are the exact
+  fields Plausible/Umami record, so if they show here they are being captured.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>clvkit referrer check</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.3rem; }
+    dt { font-weight: 600; margin-top: 1rem; }
+    dd { margin: 0; font-family: ui-monospace, monospace; word-break: break-all; }
+    .empty { color: #888; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Referrer check</h1>
+  <p>The fields below are what your browser sent, the same ones the analytics
+     beacon records. If a keyed link populated them here, they are being captured.</p>
+  <dl>
+    <dt>document.referrer</dt><dd id="ref"></dd>
+    <dt>utm_source</dt><dd id="src"></dd>
+    <dt>full query string</dt><dd id="qs"></dd>
+  </dl>
+  <script>
+    var q = new URLSearchParams(location.search);
+    function set(id, val) {
+      var el = document.getElementById(id);
+      if (val) { el.textContent = val; }
+      else { el.textContent = "(none)"; el.className = "empty"; }
+    }
+    set("ref", document.referrer);
+    set("src", q.get("utm_source"));
+    set("qs", location.search);
+  </script>
+</body>
+</html>

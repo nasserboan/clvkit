@@ -72,6 +72,19 @@ html_theme_options = {
 
 html_context = {"default_mode": "light"}
 
+# -- Analytics --------------------------------------------------------------
+# GitHub Pages records nothing by default, so referrers and utm_* keys land
+# nowhere. This Counter.dev beacon captures both, which is what makes launch-day
+# channels distinguishable. The data-id is a public client-side identifier.
+# Only the clvkit repo deploys the site (see .github/workflows/pages.yml), so
+# this ships from there. See docs/launch-measurement.md for the keyed links.
+html_js_files = [
+    (
+        "https://cdn.counter.dev/script.js",
+        {"data-id": "9618de6c-12c8-41d5-9269-675c3c9fb7b0", "data-utcoffset": "-3"},
+    )
+]
+
 
 # -- Notebook sourcing ------------------------------------------------------
 def _copy_notebooks(app):

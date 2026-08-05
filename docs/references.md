@@ -124,9 +124,7 @@ BG/NBD's published numbers rather than trust an implementation.
 
 CDNOW's 1/10 systematic sample, 2,357 customers, is the dataset every published
 estimate above was fit on. It has circulated freely for two decades and ships
-with several packages, including `lifetimes` and R's `CLVTools`. See
-[`docs/research/academic-datasets.md`](research/academic-datasets.md) for which
-copy matches which published fit.
+with several packages, including `lifetimes` and R's `CLVTools`.
 
 CDNOW is a single 1997 acquisition cohort, so it cannot demonstrate a cohort
 matrix. **UCI Online Retail II** carries the cohort-retention examples instead:
