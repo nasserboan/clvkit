@@ -225,7 +225,7 @@ def test_prediction_plot_renders(model):
     ax = model.probability_alive().plot()
 
     assert isinstance(ax, Axes)
-    assert ax.get_xlabel() == "Probability alive"
+    assert ax.get_xlabel() == "Days since last purchase"
 
 
 def test_predict_before_fit_is_refused():

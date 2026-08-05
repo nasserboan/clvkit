@@ -29,3 +29,8 @@ online+retail+ii.zip
 # write. Both are reproducible by re-running the notebook.
 examples/data/
 examples/output/
+
+# Sphinx docs build
+docs/site/_build/
+docs/site/examples/*.ipynb
+docs/site/api/generated/

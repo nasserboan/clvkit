@@ -11,6 +11,7 @@ from functools import cache
 from io import StringIO
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -445,11 +446,143 @@ def test_result_round_trips_through_json():
 def test_result_plot_is_labelled_with_the_horizon_and_time_unit():
     result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
 
-    ax = result.plot()
+    _, target = plt.subplots()
+    ax = result.plot(ax=target)
 
+    assert ax is target
     assert isinstance(ax, Axes)
     assert "12" in ax.get_xlabel()
-    assert "W" in ax.get_xlabel()
+    assert "weeks" in ax.get_xlabel()
+    assert ax.get_ylabel() == "Expected spend per transaction ($)"
+    assert ax.get_title() == "Where CLV comes from: how often × how much"
+    assert ax.spines["top"].get_visible() is False
+    assert ax.spines["right"].get_visible() is False
+    assert len(ax.figure.axes) == 2
+    assert ax.figure.axes[1].get_ylabel() == "12-week CLV ($)"
+    assert len(ax.lines) > 0
+
+    line = ax.lines[0]
+    assert line.get_xdata() * line.get_ydata() == pytest.approx(
+        line.get_xdata()[0] * line.get_ydata()[0]
+    )
+
+
+def test_result_plot_accepts_a_custom_title():
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(title="My CLV")
+
+    assert ax.get_title() == "My CLV"
+
+
+def test_iso_curve_labels_follow_manual_axis_limits():
+    # The labels are pinned to the top of each curve via the axis's own
+    # limit-change events, so setting xlim/ylim by hand after the plot must
+    # keep every visible label inside the frame rather than stranding it.
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    _, target = plt.subplots()
+    ax = result.plot(ax=target, curve_levels=4)
+
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 60)
+
+    labels = [text for text in ax.texts if text.get_text().startswith("$")]
+    assert labels  # each curve carries its round-money CLV level
+    visible = [label for label in labels if label.get_visible()]
+    assert visible  # at least one curve crosses the manual frame
+    for label in visible:
+        x, y = label.xy
+        assert -1e-6 <= x <= 10 + 1e-6
+        assert -1e-6 <= y <= 60 + 1e-6
+
+
+def test_iso_curves_are_labelled_at_round_money_levels():
+    # The curves stand in for "everyone here is worth about the same", so they
+    # sit at 1/2/5 round numbers rather than raw percentiles of the CLV column.
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(curve_levels=4)
+
+    levels = sorted(
+        int(text.get_text().lstrip("$").replace(",", ""))
+        for text in ax.texts
+        if text.get_text().startswith("$")
+    )
+    assert levels  # curves are drawn and labelled
+    nice_mantissas = {1, 2, 5}
+    for level in levels:
+        mantissa = level / 10 ** (len(str(level)) - 1)
+        assert mantissa in nice_mantissas
+
+
+def test_plot_accepts_a_currency_symbol():
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(currency="€")
+
+    assert ax.get_ylabel() == "Expected spend per transaction (€)"
+    assert ax.figure.axes[1].get_ylabel().endswith("(€)")
+    assert any(text.get_text().startswith("€") for text in ax.texts)
+
+
+def test_explicit_levels_override_the_automatic_ones():
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(levels=[25, 75])
+
+    money = sorted(
+        text.get_text() for text in ax.texts if text.get_text().startswith("$")
+    )
+    assert money == ["$25", "$75"]
+
+
+def test_color_scale_defaults_clip_the_whale_tail():
+    # Left to None, the ceiling is the 95th percentile of CLV, not the raw max
+    # a couple of whales set.
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+    clv = result.to_pandas()["clv"].to_numpy()
+
+    ax = result.plot()
+
+    _, ceiling = ax.collections[0].get_clim()
+    assert ceiling == pytest.approx(np.quantile(clv, 0.95))
+    assert ceiling < clv.max()
+
+
+def test_color_scale_limits_are_configurable():
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(vmin=10, vmax=200)
+
+    floor, ceiling = ax.collections[0].get_clim()
+    assert (floor, ceiling) == (10, 200)
+
+
+def test_plot_options_typeddict_tracks_plot_clv_signature():
+    # CLVResult.plot forwards **kwargs typed as PlotCLVOptions; if plot_clv
+    # grows or renames an option and the TypedDict is not updated, the option
+    # silently stops being discoverable. Fail here instead.
+    import inspect
+
+    from clvkit.plotting import PlotCLVOptions, plot_clv
+
+    keyword_only = {
+        name
+        for name, param in inspect.signature(plot_clv).parameters.items()
+        if param.kind is inspect.Parameter.KEYWORD_ONLY
+    }
+    assert set(PlotCLVOptions.__annotations__) == keyword_only
+
+
+def test_plot_forwards_marker_styling_through_scatter_kwargs():
+    result = _fitted_cdnow_clv().predict(horizon=12, discount_rate=0.01)
+
+    ax = result.plot(scatter_kwargs={"s": 9, "alpha": 0.3})
+
+    collection = ax.collections[0]
+    assert collection.get_sizes().tolist() == [9]
+    assert collection.get_alpha() == 0.3
 
 
 def test_result_repr_carries_the_terms_of_the_calculation():

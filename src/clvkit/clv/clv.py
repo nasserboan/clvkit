@@ -48,7 +48,11 @@ from clvkit.clv.independence import (
 from clvkit.customer_base import CustomerBase
 
 if TYPE_CHECKING:
+    from typing import Unpack
+
     from matplotlib.axes import Axes
+
+    from clvkit.plotting import PlotCLVOptions
 
 _NOT_FITTED = "CLV is not fitted yet — call .fit(cb) first"
 
@@ -110,19 +114,16 @@ class CLVResult:
         """Customer-keyed JSON, the same shape as `to_pandas()`."""
         return self.to_pandas().to_json(orient="index")
 
-    def plot(self, ax: "Axes | None" = None, **kwargs) -> "Axes":
-        """Draw the distribution of lifetime value across the customer base."""
-        from clvkit.plotting import plot_prediction
+    def plot(self, **kwargs: "Unpack[PlotCLVOptions]") -> "Axes":
+        """Draw CLV against its discounted transaction and spend factors.
 
-        # Lifetime value is "one predicted quantity per customer", which is
-        # exactly what `Prediction` is for — so the clv column draws through
-        # the same histogram as every other per-customer prediction rather
-        # than growing a near-identical second one in plotting.py.
-        return plot_prediction(
-            Prediction(self._data["clv"], name="clv", description=self.description),
-            ax=ax,
-            **kwargs,
-        )
+        Forwards to :func:`clvkit.plotting.plot_clv`; every option it takes is
+        typed through ``PlotCLVOptions``, so an editor completes and checks them
+        here as if they were spelled out.
+        """
+        from clvkit.plotting import plot_clv
+
+        return plot_clv(self, **kwargs)
 
     def __repr__(self) -> str:
         return (

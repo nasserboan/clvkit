@@ -35,11 +35,21 @@ class Prediction:
     return this.
     """
 
-    def __init__(self, values: pd.Series, *, name: str, description: str) -> None:
+    def __init__(
+        self,
+        values: pd.Series,
+        *,
+        name: str,
+        description: str,
+        plot_data: pd.DataFrame | None = None,
+        plot_time_unit: str = "",
+    ) -> None:
         self._values = values.rename(name)
         self.name = name
         # Human-readable, unit-aware label — the axis title when plotted.
         self.description = description
+        self._plot_data = None if plot_data is None else plot_data.copy()
+        self._plot_time_unit = plot_time_unit
 
     def to_pandas(self) -> pd.DataFrame:
         """The prediction as a one-column DataFrame indexed by customer_id."""
@@ -53,8 +63,10 @@ class Prediction:
         """Draw the distribution of the prediction across the customer base."""
         # Imported here, not at module scope, so `import clvkit` doesn't drag
         # in pyplot for anyone who only ever calls to_pandas().
-        from clvkit.plotting import plot_prediction
+        from clvkit.plotting import plot_prediction, plot_probability_alive
 
+        if self.name == "probability_alive" and self._plot_data is not None:
+            return plot_probability_alive(self, ax=ax, **kwargs)
         return plot_prediction(self, ax=ax, **kwargs)
 
     def __repr__(self) -> str:
