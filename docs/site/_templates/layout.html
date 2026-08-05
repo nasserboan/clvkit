@@ -1,0 +1,12 @@
+{% extends "!layout.html" %}
+
+{# The home page's H1 is already "clvkit", and Sphinx appends the site title as
+   a suffix, so its browser tab reads "clvkit — clvkit". Drop the suffix on the
+   root page only; every other page keeps "<page> — clvkit". #}
+{%- block htmltitle %}
+{%- if pagename == 'index' %}
+<title>{{ title|striptags|e }}</title>
+{%- else %}
+{{ super() }}
+{%- endif %}
+{%- endblock %}
