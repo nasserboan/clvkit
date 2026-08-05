@@ -127,12 +127,34 @@ def test_predictions_can_be_scored_on_a_different_customer_base():
 
 
 def test_prediction_plot_renders():
-    model = BGNBD().fit(_toy_base())
+    model = BGNBD().fit(_toy_base(time_unit="W", collapse="D"))
 
     ax = model.probability_alive().plot()
 
     assert isinstance(ax, Axes)
-    assert ax.get_xlabel() == "Probability alive"
+    assert ax.get_xlabel() == "Weeks since last purchase"
+    assert ax.get_ylabel() == "P(alive) at observation end"
+    assert ax.get_title() == (
+        "Gone, or just quiet? Same silence reads differently by buying rhythm"
+    )
+    assert ax.spines["top"].get_visible() is False
+    assert ax.spines["right"].get_visible() is False
+    assert len(ax.figure.axes) == 2
+
+    # A faint white rim separates overlapping points in the dense band.
+    collection = ax.collections[0]
+    assert collection.get_edgecolor().tolist() == [[1.0, 1.0, 1.0, 0.4]]
+    assert collection.get_linewidths().tolist() == [0.3]
+
+
+def test_prediction_plot_marker_edge_is_overridable():
+    model = BGNBD().fit(_toy_base(time_unit="W", collapse="D"))
+
+    ax = model.probability_alive().plot(edgecolors="black", linewidths=1.0)
+
+    collection = ax.collections[0]
+    assert collection.get_edgecolor().tolist() == [[0.0, 0.0, 0.0, 1.0]]
+    assert collection.get_linewidths().tolist() == [1.0]
 
 
 def test_predict_before_fit_is_refused():

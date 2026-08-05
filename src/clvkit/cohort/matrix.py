@@ -71,7 +71,7 @@ class CohortMatrix:
     Recent cohorts have been observed for fewer periods, so the matrix is a
     triangle: cells past a cohort's observation window are ``NaN``, never
     ``0``. A zero means "observed, nobody bought"; missing means "not yet
-    knowable". Because of those ``NaN``s the retention matrix is float-typed
+    knowable". Because of those ``NaN`` cells the retention matrix is float-typed
     even though it counts customers.
 
         >>> matrix = CohortMatrix.from_transactions(df, period="M")

@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "site/**"
-      - "docs/articles/01-manifesto.md"
-      - "docs/articles/figures/**"
+      - "docs/site/**"
+      - "docs/brand/**"
+      - "examples/*.ipynb"
+      - "src/clvkit/**"
+      - "pyproject.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -30,49 +32,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The site is assembled from an explicit allowlist rather than from the
-      # repo tree, so a file cannot reach the public site by merely existing.
-      # Adding a page means adding a line here, which is the point.
-      - name: Assemble the site source
-        run: |
-          set -euo pipefail
-          mkdir -p build/the-shrug/figures
-          cp site/_config.yml site/index.md build/
+      - uses: astral-sh/setup-uv@v5
 
-          # The article has one source of truth, docs/articles/01-manifesto.md.
-          # It is copied in with front matter prepended and its body left byte
-          # for byte, so its relative image paths keep working both here and in
-          # GitHub's own markdown view. The figures land alongside the rendered
-          # page, under the same /the-shrug/ prefix those paths resolve against.
-          printf -- '---\npermalink: /the-shrug/\ntitle: The shrug\n---\n\n' > build/the-shrug.md
-          cat docs/articles/01-manifesto.md >> build/the-shrug.md
+      # nbsphinx converts the example notebooks through pandoc.
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
 
-          cp docs/articles/figures/01-alive-vs-spend.png \
-             docs/articles/figures/02-frequency-zero-mass.png \
-             docs/articles/figures/shrug.jpeg \
-             build/the-shrug/figures/
+      # -W turns a broken cross-reference or a malformed docstring into a failed
+      # build rather than a quietly degraded page. autodoc imports clvkit, so uv
+      # installs the project alongside the docs group.
+      - name: Build the docs
+        run: uv run --group docs sphinx-build -b html -W docs/site _site
 
-      # Jekyll will happily publish an empty page, so the failure worth catching
-      # is a site that built fine and quietly lost its content.
-      - name: Check the assembled source
-        run: |
-          set -euo pipefail
-          grep -q 'uv add clvkit' build/index.md
-          grep -q '^# The shrug' build/the-shrug.md
-          grep -q '(figures/shrug.jpeg)' build/the-shrug.md
-          test -f build/the-shrug/figures/shrug.jpeg
-          # Only the two pages named above are ever published. Anything else
-          # that appears here arrived by accident.
-          test "$(find build -maxdepth 1 -name '*.md' | wc -l)" -eq 2
+      # The output carries _static/ directories. Without this, GitHub could run
+      # Jekyll over the artifact and strip every underscore-prefixed folder,
+      # taking the CSS and search index with it.
+      - name: Disable Jekyll
+        run: touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5
 
-      - uses: actions/jekyll-build-pages@v1
-        with:
-          source: build
-          destination: ./_site
-
       - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
 
   deploy:
     needs: build

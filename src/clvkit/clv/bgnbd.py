@@ -271,6 +271,8 @@ class BGNBD:
             pd.Series(values, index=summary.index),
             name="probability_alive",
             description="Probability alive",
+            plot_data=summary[["frequency", "recency", "T"]],
+            plot_time_unit=self.time_unit_ or "",
         )
 
     def _fitted_params(self) -> tuple[float, float, float, float]:

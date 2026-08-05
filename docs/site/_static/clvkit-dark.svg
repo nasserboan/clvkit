@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 64" role="img" aria-label="clvkit">
+  <title>clvkit</title>
+  <!-- Primary (dark backgrounds). Build step: outline text to the chosen typeface for pixel-identical rendering.
+       Tracking is -0.02em, not -0.038em: at the tighter value the long names in
+       the family jam, and segmentation[kit] loses the counters in "mentat". -->
+  <text x="116" y="49" text-anchor="middle" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" letter-spacing="-0.02em" font-weight="800">
+    <tspan fill="#7C83FF">clv</tspan><tspan fill="#7C83FF" font-weight="600">[</tspan><tspan fill="#E2E8F0">kit</tspan><tspan fill="#7C83FF" font-weight="600">]</tspan>
+  </text>
+</svg>

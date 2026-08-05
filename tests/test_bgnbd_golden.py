@@ -21,6 +21,7 @@ when you ask for it without saying you meant it.
 """
 
 import pytest
+from matplotlib.axes import Axes
 
 from clvkit import BGNBD, CustomerBase
 
@@ -96,6 +97,15 @@ def test_predictions_on_the_published_fit_are_per_customer(
     assert len(alive) == 2357
     assert (expected["expected_purchases"] >= 0).all()
     assert alive["probability_alive"].between(0, 1).all()
+
+
+def test_probability_alive_plot_renders_on_cdnow(cdnow_model):
+    ax = cdnow_model.probability_alive().plot()
+
+    assert isinstance(ax, Axes)
+    assert ax.get_xlabel() == "Weeks since last purchase"
+    assert ax.get_ylabel() == "P(alive) at observation end"
+    assert ax.figure.axes[1].get_ylabel() == "Repeat purchases (frequency)"
 
 
 def test_conditional_expectation_tracks_actual_holdout_purchasing(

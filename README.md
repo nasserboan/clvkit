@@ -52,7 +52,8 @@ Two libraries occupy this space, and each is out of reach in its own way.
 **[`lifetimes`](https://github.com/CamDavidsonPilon/lifetimes) is archived.**
 It was the de-facto frequentist BTYD library, and its conventions are in every
 blog post and notebook on the subject. The owner archived it on 2024-06-28; the
-last release was 0.11.3, in July 2020. Its successor
+last release was 0.11.3, in July 2020, and it still draws 248,263 downloads a
+month. Its successor
 [`btyd`](https://github.com/ColtAllen/btyd) is archived too, and stopped at
 0.1b3 in November 2022 without ever leaving beta. That one declares
 `requires_python = ">=3.8,<3.10"`, so it will not install on Python 3.10 or
@@ -75,6 +76,10 @@ then an L-BFGS-B polish), on four dependencies, and hands back a DataFrame.
 That is the whole difference. It is a narrower tool, and for an analyst who
 wants parameters and a CSV it is the cheaper one.
 
+And it isn't a weekend project I'll lose interest in. It's the CLV engine for
+customer-analytics work I'm building on top of it, so it stays installable and
+stays correct — CI checks both on every push.
+
 ## Install
 
 Not on PyPI yet. Until it is:
@@ -86,6 +91,19 @@ uv add git+https://github.com/nasserboan/proj-clv
 Python 3.13+. Four runtime dependencies (numpy, scipy, pandas, matplotlib), and
 one optional extra, `dask`, for logs too big to summarise in pandas. See
 [Large transaction logs](#large-transaction-logs).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/brand/clv-scatter.png" alt="Scatter of every CDNOW customer by discounted expected transactions and expected spend, coloured by 52-week CLV, with equal-CLV curves overlaid."></td>
+    <td width="50%"><img src="docs/brand/probability-alive.png" alt="Scatter of P(alive) against weeks since last purchase for CDNOW customers, coloured by repeat-purchase count: heavy buyers gone quiet are judged dead faster than light ones."></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><code>CLV().fit(cb).predict(horizon=52)</code> — where lifetime value comes from: how often × how much, along equal-CLV curves.</sub></td>
+    <td align="center"><sub><code>BGNBD().fit(cb).probability_alive()</code> — gone, or just quiet? The same silence reads differently by buying rhythm.</sub></td>
+  </tr>
+</table>
+
+<sub>Both are the library's own output on the CDNOW 1/10 sample.</sub>
 
 ## The whole thing
 
@@ -237,6 +255,12 @@ Two honest caveats, both measured. The benchmark and its numbers are in
   at every size measured. Raising the ceiling takes a distributed scheduler,
   with workers in their own processes, in front of the same call.
 
+<p align="center">
+  <img src="docs/brand/dask-crossover.png" width="820" alt="Wall-clock of CustomerBase.from_transactions against log size, pandas versus dask, on log-log axes. pandas is faster below about 4 million transactions, dask above it.">
+  <br>
+  <sub>Summarising wall-clock vs. log size. The one flag (<code>engine="dask"</code>) only pays off past the ~4M-row crossover; below it pandas wins. Numbers from <a href="benchmarks/README.md">the benchmark</a>.</sub>
+</p>
+
 ## Canon vs. opinion
 
 Two different kinds of decision live inside a CLV library, and conflating them
@@ -351,8 +375,24 @@ summary throws away. `CohortSurvival(transaction_model=...).fit(cb).predict()`
 business that never observes anyone leaving, with no contractual assumption
 borrowed.
 
+<p align="center">
+  <img src="docs/brand/cohort-retention.png" width="820" alt="Cohort-retention heatmap on the Online Retail II log: a triangle of monthly retention rates, with the unobserved lower-right cells drawn in grey rather than zero.">
+  <br>
+  <sub><code>CohortMatrix.from_transactions(log, period="M").plot()</code> on the Online Retail II log. The grey cells are periods a young cohort hasn't lived through yet; a hand-rolled pivot paints them as churn.</sub>
+</p>
+
 Every prediction returns a result object with `.to_pandas()`, `.to_json()` and
 `.plot()`. A chart by default, and never a trap.
+
+## What clvkit will not do
+
+The model roster is `BGNBD`, `MBGNBD` and `GammaGamma`, and it is meant to stay
+that size. No covariates, no Bayesian fit, no further model families. Those live
+in [`pymc-marketing`](https://github.com/pymc-labs/pymc-marketing), which does
+them well; the boundary is the one drawn in [Why this exists](#why-this-exists).
+
+A declared scope is what makes a finished library read as finished rather than
+abandoned. This one is finished, not stalled — stopping here is the design.
 
 ## Example notebooks
 
