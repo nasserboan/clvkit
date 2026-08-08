@@ -9,7 +9,8 @@ clvkit
 
 Buy-till-you-die models for a business where nobody cancels a subscription, so
 you never observe a customer leaving — you only ever observe them not coming back
-*yet*. Python 3.13+, four dependencies, no compiler.
+*yet*. Six lines take a transaction log to a per-customer CLV table, in 2.0 s
+of wall clock on the CDNOW sample. Python 3.11+, four dependencies, no compiler.
 
 .. code-block:: bash
 

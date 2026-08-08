@@ -15,18 +15,18 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.13%2B-4F46E5?style=flat" alt="Python 3.13+">
+  <img src="https://img.shields.io/badge/python-3.11%2B-4F46E5?style=flat" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/dependencies-4-4F46E5?style=flat" alt="Four dependencies">
-  <img src="https://img.shields.io/badge/tests-238%20passing-4F46E5?style=flat" alt="238 tests passing">
+  <img src="https://img.shields.io/badge/tests-254%20passing-4F46E5?style=flat" alt="254 tests passing">
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/badge/code%20style-ruff-4F46E5?style=flat" alt="Code style: ruff"></a>
-  <img src="https://img.shields.io/github/stars/nasserboan/proj-clv?style=flat&color=4F46E5" alt="Stars">
+  <img src="https://img.shields.io/github/stars/nasserboan/clvkit?style=flat&color=4F46E5" alt="Stars">
   <img src="https://img.shields.io/pypi/v/clvkit?style=flat&color=4F46E5" alt="PyPI version">
-  <img src="https://img.shields.io/github/license/nasserboan/proj-clv?style=flat&color=4F46E5" alt="License">
+  <img src="https://img.shields.io/github/license/nasserboan/clvkit?style=flat&color=4F46E5" alt="License">
 </p>
 
 <p align="center">
-  <strong>r = 0.242595 against a published 0.243 &middot; 4 dependencies &middot; one <code>scipy.optimize</code> run &middot; a DataFrame back</strong><br>
-  <sub>BG/NBD fit on the CDNOW 1/10 systematic sample, 2,357 customers, 39-week calibration, which is the same data Fader, Hardie &amp; Lee published <code>r = .243, α = 4.414, a = .793, b = 2.426</code> on in 2005. The right-hand numbers are not transcribed: <a href="tests/test_bgnbd_golden.py">the test suite fits them</a> on every push, and the build fails if any drifts past half a unit in the paper's last printed digit. <a href="#reproduced-estimates">The full table</a> &middot; <a href="#the-whole-thing">six lines to run it</a>.</sub>
+  <strong>A transaction log in, a per-customer CLV table back &middot; six lines &middot; 2.0 s wall clock &middot; 14 packages</strong><br>
+  <sub>BG/NBD, Gamma-Gamma and discounted lifetime value on the CDNOW 1/10 systematic sample, 2,357 customers, imports included. The fitted parameters land on the estimates Fader, Hardie &amp; Lee published on the same data in 2005, and they aren't transcribed: <a href="tests/test_bgnbd_golden.py">the test suite fits them</a> on every push, and the build fails if any drifts past half a unit in the paper's last printed digit. <a href="#the-whole-thing">The six lines</a> &middot; <a href="#reproduced-estimates">the reproduced estimates</a>.</sub>
 </p>
 
 ---
@@ -44,6 +44,37 @@ answer any of them, because they need statistical inference rather than a
 
 The BTYD / probability-model tradition (Fader, Hardie, et al.) answered these
 decades ago. The Python tooling for it is what went missing.
+
+## The whole thing
+
+```python
+import pandas as pd
+
+from clvkit import CLV, CustomerBase
+
+log = pd.read_csv("transactions.csv", parse_dates=["date"])  # customer_id, date, amount
+
+cb = CustomerBase.from_transactions(log, time_unit="W", collapse="D")
+result = CLV().fit(cb).predict(horizon=52, discount_rate=0.001)
+
+# expected_purchases, discounted_expected_transactions, expected_spend, clv
+result.to_pandas()  # indexed by customer_id
+result.plot()
+```
+
+That is the whole pipeline. On the CDNOW sample, 2,357 customers, it runs in
+2.0 s of wall clock, imports included.
+
+`CustomerBase` is the one input currency: it turns the raw log into the RFM
+sufficient statistic every model here consumes, and carries its own provenance
+(`time_unit`, `collapse`, `observation_period_end`, `has_monetary`,
+`on_negative`), so scoring a model fit in weeks against a base measured in
+days is refused rather than quietly answered, and so is scoring it against a
+base that kept a different set of purchases. The verbs are short and shared:
+`fit` and `predict` everywhere, plus `probability_alive` on the transaction
+models, where latent
+attrition is the thing being estimated. Every result object plots itself and
+hands you a DataFrame with `.to_pandas()`.
 
 ## Why this exists
 
@@ -82,13 +113,11 @@ stays correct — CI checks both on every push.
 
 ## Install
 
-Not on PyPI yet. Until it is:
-
 ```console
-uv add git+https://github.com/nasserboan/proj-clv
+uv add clvkit
 ```
 
-Python 3.13+. Four runtime dependencies (numpy, scipy, pandas, matplotlib), and
+Or `pip install clvkit`. Python 3.11+. Four runtime dependencies (numpy, scipy, pandas, matplotlib), and
 one optional extra, `dask`, for logs too big to summarise in pandas. See
 [Large transaction logs](#large-transaction-logs).
 
@@ -105,33 +134,35 @@ one optional extra, `dask`, for logs too big to summarise in pandas. See
 
 <sub>Both are the library's own output on the CDNOW 1/10 sample.</sub>
 
-## The whole thing
+## Four questions, and the sentence to say out loud
 
-```python
-import pandas as pd
+[`examples/start_here.ipynb`](examples/start_here.ipynb) is a router, not a
+lesson. Four questions a business actually asks (what is a customer worth, is
+this one gone or just quiet, who gets the retention budget, why do two
+retention charts disagree), each answered on real data in a couple of cells,
+each ending with the sentence you could say in a meeting.
 
-from clvkit import CLV, CustomerBase
+The first one runs the formula you probably use today, `average ticket ×
+frequency × margin`, against 39 weeks of CDNOW history neither method saw. The
+formula overshoots by 61%. The fitted model comes in 16% low, wrong by a
+quarter as much and in the safe direction, and the notebook hands you the
+sentence that follows: "our current LTV number assumes nobody ever churns."
 
-log = pd.read_csv("transactions.csv", parse_dates=["date"])  # customer_id, date, amount
+The library talks the same way. `print(cb)` on the CDNOW base says
+`52% bought once - the models see them only through the population, not their
+own history`. The variant for a base like that, where a customer can drop out
+after their first purchase, is [`MBGNBD`](#whats-in-the-box), one word away.
 
-cb = CustomerBase.from_transactions(log, time_unit="W", collapse="D")
-result = CLV().fit(cb).predict(horizon=52, discount_rate=0.001)
+## Small enough to leave
 
-# expected_purchases, discounted_expected_transactions, expected_spend, clv
-result.to_pandas()  # indexed by customer_id
-result.plot()
-```
+`uv add clvkit` puts 14 packages in a fresh environment, none of them a
+compiler. The library itself is about 2,600 lines of BSD-3 Python on numpy,
+scipy, pandas and matplotlib.
 
-`CustomerBase` is the one input currency: it turns the raw log into the RFM
-sufficient statistic every model here consumes, and carries its own provenance
-(`time_unit`, `collapse`, `observation_period_end`, `has_monetary`,
-`on_negative`), so scoring a model fit in weeks against a base measured in
-days is refused rather than quietly answered, and so is scoring it against a
-base that kept a different set of purchases. The verbs are short and shared:
-`fit` and `predict` everywhere, plus `probability_alive` on the transaction
-models, where latent
-attrition is the thing being estimated. Every result object plots itself and
-hands you a DataFrame with `.to_pandas()`.
+That count is the exit plan. If I disappear, a team that depends on this can
+vendor the lines into their own repo and maintain them. A promise to maintain
+a library is worth what promises are worth; a codebase small enough to take
+over is worth more.
 
 ## Reproduced estimates
 
@@ -396,11 +427,8 @@ abandoned. This one is finished, not stalled — stopping here is the design.
 
 ## Example notebooks
 
-Start with [`examples/start_here.ipynb`](examples/start_here.ipynb). It's a router,
-not a lesson: four questions a business actually asks, each answered on real data
-in a couple of cells, each ending with the sentence you could say in a meeting.
-The first one runs your own `average ticket x frequency x margin` formula against
-39 weeks of held-out CDNOW history and shows it overshooting by 61%.
+Start with [`examples/start_here.ipynb`](examples/start_here.ipynb), the router
+described [above](#four-questions-and-the-sentence-to-say-out-loud).
 
 The other two are the long versions. All three are executed top-to-bottom by CI
 with [`nbmake`](https://github.com/treebeardtech/nbmake), so a change that breaks

@@ -4,7 +4,13 @@ From lifetimes
 If you have working ``lifetimes`` code, the same fit is shorter here, and the two
 knobs that quietly change the answer are named instead of hidden. ``lifetimes`` is
 archived and takes no new releases; clvkit fits the same four models on Python
-3.13.
+3.11+.
+
+Archived means nobody fixes it when the ground moves, and it already has.
+setuptools 83 removed ``pkg_resources``, ``lifetimes.datasets`` stopped importing
+with it, and the ``load_cdnow_summary()`` line that opens every old tutorial now
+dies on a fresh install. The models themselves still fit; the on-ramp is what
+broke.
 
 The whole migration, side by side
 ----------------------------------
