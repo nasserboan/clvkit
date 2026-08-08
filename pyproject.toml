@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "nsboan", email = "nasserboan@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 # BSD-3-Clause, matching numpy, scipy and pandas. Permissive, so a company can
 # embed this without a legal review, and the no-endorsement clause keeps the
 # project's name out of anyone else's marketing.
@@ -14,9 +14,9 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 dependencies = [
     "matplotlib>=3.11.0",
-    "numpy>=2.5.1",
+    "numpy>=2.3",
     "pandas>=3.0.3",
-    "scipy>=1.18.0",
+    "scipy>=1.16",
 ]
 
 [project.optional-dependencies]
@@ -70,3 +70,10 @@ docs = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.7.0",
 ]
+
+# The runtime floor is 3.11 (validated: the suite passes on 3.11 at both the
+# newest compatible set and the exact pinned minimums). Docs tooling is
+# maintainer-only and sphinx>=9.1 needs 3.12, so the docs group keeps a
+# higher floor rather than dragging the package's down.
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.12" }

@@ -5,7 +5,7 @@ Install
 
    uv add clvkit     # or pip install clvkit
 
-Python 3.13+, four runtime dependencies — ``numpy``, ``scipy``, ``pandas`` and
+Python 3.11+, four runtime dependencies — ``numpy``, ``scipy``, ``pandas`` and
 ``matplotlib`` — and no compiler. If ``uv`` is new to you, it's the fastest way
 in; ``pip install clvkit`` gets you the same package.
 

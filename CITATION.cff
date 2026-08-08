@@ -8,7 +8,7 @@ type: software
 authors:
   - alias: nsboan
     email: nasserboan@gmail.com
-repository-code: https://github.com/nasserboan/proj-clv
+repository-code: https://github.com/nasserboan/clvkit
 abstract: >-
   Buy-till-you-die models for customer-base analysis in Python, fit by maximum
   likelihood and benchmarked against the estimates published with the original

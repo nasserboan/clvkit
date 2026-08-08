@@ -11,7 +11,7 @@ Install
 
    uv add clvkit     # or pip install clvkit
 
-Python 3.13+, four runtime dependencies. If ``uv`` is new to you, it's
+Python 3.11+, four runtime dependencies. If ``uv`` is new to you, it's
 the fastest way in; ``pip install clvkit`` gets you the same package.
 
 The one contract
