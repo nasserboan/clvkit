@@ -1,12 +1,13 @@
 {% extends "!layout.html" %}
 
 {# The home page's H1 is already "clvkit", and Sphinx appends the site title as
-   a suffix, so its browser tab reads "clvkit — clvkit". Drop the suffix on the
-   root page only; every other page keeps "<page> — clvkit". #}
+   a suffix, so its browser tab would read "clvkit · clvkit". Drop the suffix on
+   the root page only. Every other page gets "<page> · clvkit" - the middot is
+   ours; Sphinx's stock titlesuffix hardcodes an em dash. #}
 {%- block htmltitle %}
 {%- if pagename == 'index' %}
 <title>{{ title|striptags|e }}</title>
 {%- else %}
-{{ super() }}
+<title>{{ title|striptags|e }} · {{ docstitle|e }}</title>
 {%- endif %}
 {%- endblock %}

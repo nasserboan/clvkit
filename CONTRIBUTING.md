@@ -25,7 +25,7 @@ CI runs these four, and a pull request needs them green:
 ```bash
 uv run ruff check              # lint
 uv run ruff format --check     # formatting
-uv run pytest                  # 238 tests
+uv run pytest                  # the full suite
 uv run pytest --nbmake --nbmake-timeout=900 examples/   # notebooks execute
 ```
 
