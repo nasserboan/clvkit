@@ -1,12 +1,12 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/clvkit-symbol-dark.svg">
-    <img src="docs/brand/clvkit-symbol-light.svg" height="72" alt="">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/clvkit-symbol-dark.svg">
+    <img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/clvkit-symbol-light.svg" height="72" alt="">
   </picture>
   &nbsp;&nbsp;
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/clvkit-dark.svg">
-    <img src="docs/brand/clvkit-light.svg" height="64" alt="clvkit">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/clvkit-dark.svg">
+    <img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/clvkit-light.svg" height="64" alt="clvkit">
   </picture>
 </p>
 
@@ -123,8 +123,8 @@ one optional extra, `dask`, for logs too big to summarise in pandas. See
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/brand/clv-scatter.png" alt="Scatter of every CDNOW customer by discounted expected transactions and expected spend, coloured by 52-week CLV, with equal-CLV curves overlaid."></td>
-    <td width="50%"><img src="docs/brand/probability-alive.png" alt="Scatter of P(alive) against weeks since last purchase for CDNOW customers, coloured by repeat-purchase count: heavy buyers gone quiet are judged dead faster than light ones."></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/clv-scatter.png" alt="Scatter of every CDNOW customer by discounted expected transactions and expected spend, coloured by 52-week CLV, with equal-CLV curves overlaid."></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/probability-alive.png" alt="Scatter of P(alive) against weeks since last purchase for CDNOW customers, coloured by repeat-purchase count: heavy buyers gone quiet are judged dead faster than light ones."></td>
   </tr>
   <tr>
     <td align="center"><sub><code>CLV().fit(cb).predict(horizon=52)</code> — where lifetime value comes from: how often × how much, along equal-CLV curves.</sub></td>
@@ -287,7 +287,7 @@ Two honest caveats, both measured. The benchmark and its numbers are in
   with workers in their own processes, in front of the same call.
 
 <p align="center">
-  <img src="docs/brand/dask-crossover.png" width="820" alt="Wall-clock of CustomerBase.from_transactions against log size, pandas versus dask, on log-log axes. pandas is faster below about 4 million transactions, dask above it.">
+  <img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/dask-crossover.png" width="820" alt="Wall-clock of CustomerBase.from_transactions against log size, pandas versus dask, on log-log axes. pandas is faster below about 4 million transactions, dask above it.">
   <br>
   <sub>Summarising wall-clock vs. log size. The one flag (<code>engine="dask"</code>) only pays off past the ~4M-row crossover; below it pandas wins. Numbers from <a href="benchmarks/README.md">the benchmark</a>.</sub>
 </p>
@@ -407,7 +407,7 @@ business that never observes anyone leaving, with no contractual assumption
 borrowed.
 
 <p align="center">
-  <img src="docs/brand/cohort-retention.png" width="820" alt="Cohort-retention heatmap on the Online Retail II log: a triangle of monthly retention rates, with the unobserved lower-right cells drawn in grey rather than zero.">
+  <img src="https://raw.githubusercontent.com/nasserboan/clvkit/main/docs/brand/cohort-retention.png" width="820" alt="Cohort-retention heatmap on the Online Retail II log: a triangle of monthly retention rates, with the unobserved lower-right cells drawn in grey rather than zero.">
   <br>
   <sub><code>CohortMatrix.from_transactions(log, period="M").plot()</code> on the Online Retail II log. The grey cells are periods a young cohort hasn't lived through yet; a hand-rolled pivot paints them as churn.</sub>
 </p>
