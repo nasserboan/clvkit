@@ -6,9 +6,9 @@ assertion — build the same log both ways, demand identical values *and*
 identical dtypes — repeated across the paths where the two heads diverge:
 netting, dropping, timing-only logs, and a ruler coarser than the grain.
 
-Row counts are compared, not just values. Under ``on_negative="net"`` a
-customer whose every period nets non-positive vanishes from the index
-entirely, and an engine that lost a different set of customers would still
+Row counts are compared, not just values. A customer whose every transaction
+is negative vanishes from the index entirely (nothing corroborates a
+purchase), and an engine that lost a different set of customers would still
 pass a value-only comparison on the intersection.
 
 This file skips wholesale without the ``dask`` extra, which is the point of it
@@ -41,10 +41,10 @@ def _hand_both_engines_the_same_dtypes():
 
 
 # Five customers with different shapes: alice repeats within and across months,
-# bob repeats across months only, carol never repeats, and erin has a refund
-# that only cancels one of her periods. dave's refund cancels his only
-# purchase, so `on_negative="net"` must delete him from both engines' output
-# rather than leave him behind at frequency 0.
+# bob repeats across months only, carol never repeats, and erin has a
+# refund-only day that corroborates no purchase and forms no event. dave's
+# refund cancels his only purchase's *spend* — both engines must keep him at
+# frequency 0 with monetary_value 0, not delete him.
 LOG = pd.DataFrame(
     [
         ("alice", "2024-01-01", 10.0),
@@ -91,11 +91,21 @@ class TestTheTwoEnginesSummariseIdentically:
         eager, lazily = both(log, lazy)
         pd.testing.assert_frame_equal(eager, lazily)
 
-    def test_netting_drops_the_same_customers(self, log, lazy):
+    def test_netting_keeps_the_same_timing_and_zeroes_the_same_spend(self, log, lazy):
         eager, lazily = both(log, lazy, on_negative="net")
-        # dave nets to zero across February and leaves the base entirely.
-        assert "dave" not in eager.index
+        # dave's purchase was refunded the same day: the event stays, the
+        # spend does not.
+        assert eager.loc["dave", "frequency"] == 0
+        assert eager.loc["dave", "monetary_value"] == 0.0
         pd.testing.assert_frame_equal(eager, lazily)
+
+    def test_the_net_warning_counts_the_same_either_way(self, log, lazy):
+        # dave's netted-to-zero day is the one event of ten with no spend.
+        with pytest.warns(UserWarning, match="netted 1 of 10") as eager:
+            CustomerBase.from_transactions(log, on_negative="net")
+        with pytest.warns(UserWarning, match="netted 1 of 10") as lazily:
+            CustomerBase.from_transactions(lazy, engine="dask", on_negative="net")
+        assert str(eager[0].message) == str(lazily[0].message)
 
     def test_dropping_negatives(self, log, lazy):
         eager, lazily = both(log, lazy, on_negative="drop")
@@ -158,9 +168,10 @@ class TestTheTwoEnginesSummariseIdentically:
         eager, lazily = both(
             cdnow_sample, lazy, time_unit="W", collapse="D", amount_col="amount"
         )
-        # 2,357 customers in the sample, less the handful whose every period
-        # nets to zero and is dropped by the default on_negative="net".
-        assert len(eager) == 2349
+        # All 2,357 customers in the sample — including the eight whose only
+        # transaction is $0.00, which the default netting excludes from spend
+        # but no longer erases from the timing columns.
+        assert len(eager) == 2357
         pd.testing.assert_frame_equal(eager, lazily)
 
 

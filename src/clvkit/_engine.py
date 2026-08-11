@@ -79,6 +79,20 @@ def buckets(dates, freq: str, dd: "ModuleType | None"):
     )
 
 
+def counts(values: tuple, dd: "ModuleType | None") -> tuple[int, ...]:
+    """Materialise count expressions, sharing one pass over a Dask log.
+
+    The callers batching these are deciding whether a policy warning fires;
+    computing each count separately would re-read the log once per number.
+    Under pandas the values are already numbers and only get cast.
+    """
+    if dd is None:
+        return tuple(int(v) for v in values)
+    import dask
+
+    return tuple(int(v) for v in dask.compute(*values))
+
+
 def row_counts(frames: tuple, dd: "ModuleType | None") -> tuple[int, ...]:
     """How many rows in each frame, in one pass over the data.
 

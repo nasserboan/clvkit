@@ -140,8 +140,8 @@ def _amounts_why(has_monetary: bool) -> str:
 
 def _negatives_why(cb: "CustomerBase") -> str:
     return {
-        "net": "netted per period; periods not staying positive were dropped",
-        "drop": "negative rows discarded before summarising",
+        "net": "spend netted per period; timing untouched by the netting",
+        "drop": "negative rows discarded from the spend basis",
         "raise": "a negative amount would have refused the log",
     }.get(_get(cb, "on_negative"), "")
 

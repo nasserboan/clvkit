@@ -313,7 +313,7 @@ choice · why*:
 
 | Question | Our default |
 |---|---|
-| Refunds and negative amounts | `on_negative="net"` — net each bucket, keep it only if it stays positive |
+| Refunds and negative amounts | `on_negative="net"` — net each bucket's spend; timing never moves, and a counted warning names what the netting took |
 | Two purchases in one `collapse` period | Collapse to one event, sum the amounts |
 | What `monetary_value` averages | Repeat transactions only, excluding the first |
 | When monetary independence is "violated" | Warn, never error: \|Spearman ρ\| ≥ 0.30 or η² ≥ 0.25 |
@@ -421,6 +421,9 @@ The model roster is `BGNBD`, `MBGNBD` and `GammaGamma`, and it is meant to stay
 that size. No covariates, no Bayesian fit, no further model families. Those live
 in [`pymc-marketing`](https://github.com/pymc-labs/pymc-marketing), which does
 them well; the boundary is the one drawn in [Why this exists](#why-this-exists).
+Graduating doesn't start with an uninstall. `pymc-marketing` 1.0.0 caps
+`matplotlib<3.11` and `clvkit`'s floor is 3.10.0, so pip resolves the two into
+one environment.
 
 A declared scope is what makes a finished library read as finished rather than
 abandoned. This one is finished, not stalled — stopping here is the design.

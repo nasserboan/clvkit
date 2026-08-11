@@ -63,7 +63,7 @@ def test_same_time_unit_transactions_collapse_and_sum():
     assert row["monetary_value"] == 20.0
 
 
-def test_on_negative_net_keeps_only_positive_net_buckets():
+def test_on_negative_net_keeps_timing_and_nets_spend_only():
     transactions = _log(
         [
             ("D", "2020-01-01", 10),
@@ -73,15 +73,18 @@ def test_on_negative_net_keeps_only_positive_net_buckets():
         ]
     )
 
-    cb = CustomerBase.from_transactions(transactions, on_negative="net")
+    with pytest.warns(UserWarning, match="netted 1 of 2 purchase events"):
+        cb = CustomerBase.from_transactions(transactions, on_negative="net")
     row = cb.to_pandas().loc["D"]
 
-    assert row["frequency"] == 0
-    assert row["recency"] == 0
+    # Both days hold a real purchase, so both are timing events; only the
+    # second nets non-positive, and only monetary_value forgets it.
+    assert row["frequency"] == 1
+    assert row["recency"] == 9
     assert row["monetary_value"] == 0
 
 
-def test_on_negative_net_drops_customer_with_no_positive_bucket():
+def test_on_negative_net_keeps_a_customer_whose_only_event_nets_negative():
     transactions = _log(
         [
             ("D", "2020-01-01", 10),
@@ -90,14 +93,78 @@ def test_on_negative_net_drops_customer_with_no_positive_bucket():
         ]
     )
 
-    cb = CustomerBase.from_transactions(transactions, on_negative="net")
+    with pytest.warns(UserWarning, match="netted 1 of 2 purchase events"):
+        cb = CustomerBase.from_transactions(transactions, on_negative="net")
     summary = cb.to_pandas()
 
-    assert "D" not in summary.index
+    assert summary.loc["D", "frequency"] == 0
+    assert summary.loc["D", "monetary_value"] == 0
     assert "Z" in summary.index
 
 
-def test_on_negative_drop_discards_negative_rows_pre_aggregation():
+def test_a_zero_amount_transaction_is_still_a_purchase_event():
+    # The CDNOW failure mode: $0.00 rows dropped by a parameter named
+    # "negative", with zero warnings. Now they count, and the netting warns.
+    transactions = _log(
+        [
+            ("A", "2020-01-01", 10),
+            ("A", "2020-01-10", 0),
+            ("B", "2020-01-01", 0),
+        ]
+    )
+
+    with pytest.warns(UserWarning, match="netted 2 of 3 purchase events"):
+        cb = CustomerBase.from_transactions(transactions)
+    summary = cb.to_pandas()
+
+    assert summary.loc["A", "frequency"] == 1
+    assert summary.loc["A", "monetary_value"] == 0
+    assert summary.loc["B", "frequency"] == 0
+    assert summary.loc["B", "T"] == 9
+
+
+def test_a_pure_refund_customer_is_dropped_with_a_count():
+    transactions = _log(
+        [
+            ("R", "2020-01-01", -10),
+            ("Z", "2020-01-05", 100),
+        ]
+    )
+
+    with pytest.warns(UserWarning, match="dropped 1 of 2 customers entirely"):
+        cb = CustomerBase.from_transactions(transactions, on_negative="net")
+    summary = cb.to_pandas()
+
+    # A refund is not a purchase, so nothing anchors R's history — but the
+    # erasure is said out loud now, not implied by a shorter table.
+    assert "R" not in summary.index
+    assert "Z" in summary.index
+
+
+def test_timing_is_the_same_under_net_and_drop():
+    transactions = _log(
+        [
+            ("E", "2020-01-01", 10),
+            ("E", "2020-01-10", -5),
+            ("E", "2020-01-20", 7),
+            ("F", "2020-01-02", 20),
+            ("F", "2020-01-02", -25),
+            ("F", "2020-01-09", 4),
+        ]
+    )
+    timing = ["frequency", "recency", "T"]
+
+    with pytest.warns(UserWarning):
+        netted = CustomerBase.from_transactions(transactions, on_negative="net")
+    with pytest.warns(UserWarning):
+        dropped = CustomerBase.from_transactions(transactions, on_negative="drop")
+
+    pd.testing.assert_frame_equal(
+        netted.to_pandas()[timing], dropped.to_pandas()[timing]
+    )
+
+
+def test_on_negative_drop_discards_negative_rows_from_spend_only():
     transactions = _log(
         [
             ("E", "2020-01-01", 10),
@@ -106,12 +173,33 @@ def test_on_negative_drop_discards_negative_rows_pre_aggregation():
         ]
     )
 
-    cb = CustomerBase.from_transactions(transactions, on_negative="drop")
+    with pytest.warns(UserWarning, match="discarded 1 of 3 transactions"):
+        cb = CustomerBase.from_transactions(transactions, on_negative="drop")
     row = cb.to_pandas().loc["E"]
 
+    # The refund-only day corroborates no purchase, so it is not a timing
+    # event under any policy; the two real purchases are.
     assert row["frequency"] == 1
     assert row["recency"] == 19
     assert row["monetary_value"] == 7.0
+
+
+def test_rows_with_a_null_customer_id_are_dropped_with_a_count():
+    transactions = pd.DataFrame(
+        [
+            ("A", "2020-01-01", 10.0),
+            (None, "2020-01-02", 7.0),
+            ("A", "2020-01-10", 20.0),
+        ],
+        columns=["customer_id", "date", "amount"],
+    )
+
+    with pytest.warns(UserWarning, match="1 of 3 rows have no 'customer_id'"):
+        cb = CustomerBase.from_transactions(transactions)
+    summary = cb.to_pandas()
+
+    assert list(summary.index) == ["A"]
+    assert summary.loc["A", "frequency"] == 1
 
 
 def test_on_negative_raise_rejects_negative_amounts():
@@ -288,3 +376,27 @@ def test_split_observation_period_end_defaults_to_base_end():
     # holdout window is 2020-03-31 -> 2020-05-01 (base's own end)
     assert holdout.loc["A", "duration_holdout"] == 31
     assert holdout.loc["A", "frequency_holdout"] == 2
+
+
+def test_split_holdout_spend_is_zero_when_every_holdout_event_netted_away():
+    log = _log(
+        [
+            ("A", "2020-01-01", 10),
+            ("A", "2020-02-01", 20),
+            # holdout: a purchase refunded the same day — a timing event with
+            # no spend the policy will vouch for. Its mean must come back
+            # 0.0, not NaN.
+            ("A", "2020-05-01", 30),
+            ("A", "2020-05-01", -30),
+        ]
+    )
+    with pytest.warns(UserWarning, match="netted 1 of 3 purchase events"):
+        cb = CustomerBase.from_transactions(log)
+
+    _, holdout = cb.split(
+        calibration_period_end="2020-03-31",
+        observation_period_end="2020-06-30",
+    )
+
+    assert holdout.loc["A", "frequency_holdout"] == 1
+    assert holdout.loc["A", "monetary_value_holdout"] == 0.0

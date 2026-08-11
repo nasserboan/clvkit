@@ -20,6 +20,7 @@ that loses the most from the most frequent buyers. It fits
 when you ask for it without saying you meant it.
 """
 
+import pandas as pd
 import pytest
 from matplotlib.axes import Axes
 
@@ -39,9 +40,11 @@ HOLDOUT_WEEKS = 39
 
 @pytest.fixture(scope="module")
 def cdnow_calibration(cdnow_sample) -> CustomerBase:
-    # amount_col=None because BG/NBD is a timing-only model, and because
-    # on_negative="net" would otherwise drop the eight customers whose only
-    # calibration transaction has a zero dollar value, leaving 2,349 of 2,357.
+    # amount_col=None because BG/NBD is a timing-only model. It used to be a
+    # workaround as well — the default netting silently dropped the eight
+    # customers whose only transaction is $0.00 — but timing no longer
+    # depends on the monetary policy, so passing the amount column now
+    # produces this exact summary too.
     cb = CustomerBase.from_transactions(
         cdnow_sample, amount_col=None, time_unit="W", collapse="D"
     )
@@ -56,6 +59,27 @@ def cdnow_model(cdnow_calibration) -> BGNBD:
 
 def test_the_calibration_base_is_the_published_1_in_10_sample(cdnow_calibration):
     assert len(cdnow_calibration.to_pandas()) == 2357
+
+
+def test_the_amount_column_no_longer_moves_the_timing(cdnow_sample, cdnow_calibration):
+    """The regression test for the silent CDNOW drop.
+
+    The default netting used to erase the eight customers whose only
+    transaction is $0.00 from frequency, recency and T — 2,349 rows instead
+    of 2,357, and a fit that moved with them. Timing is policy-independent
+    now, and the netting says what it excluded from spend instead.
+    """
+    with pytest.warns(UserWarning, match="netted 8 of"):
+        with_amounts = CustomerBase.from_transactions(
+            cdnow_sample, time_unit="W", collapse="D"
+        )
+    calibration, _ = with_amounts.split(calibration_period_end=CALIBRATION_PERIOD_END)
+
+    timing = ["frequency", "recency", "T"]
+    pd.testing.assert_frame_equal(
+        calibration.to_pandas()[timing],
+        cdnow_calibration.to_pandas()[timing],
+    )
 
 
 def test_fitted_parameters_reproduce_the_published_estimates(cdnow_model):
