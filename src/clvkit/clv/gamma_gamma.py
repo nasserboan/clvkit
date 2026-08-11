@@ -20,6 +20,8 @@ customer base, spend and buying rate are not independent and the composed
 CLV will be biased.
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -165,7 +167,15 @@ class GammaGamma:
 
     @staticmethod
     def _repeat_buyers(cb: CustomerBase) -> tuple[np.ndarray, np.ndarray]:
-        """The (x, z̄) pairs the likelihood is evaluated on."""
+        """The (x, z̄) pairs the likelihood is evaluated on.
+
+        Since timing and spend were decoupled in `CustomerBase`, a repeat
+        buyer can carry `monetary_value = 0`: real repeat purchases, none the
+        monetary policy would vouch a positive spend for. ln z̄ is undefined
+        at zero, so such a customer contributes nothing to the likelihood and
+        is left out of the fit — counted, not silently — exactly as one-time
+        buyers already are (note §3). `predict` still scores them.
+        """
         summary = GammaGamma._require_monetary(cb).to_pandas()
         repeat = summary[summary["frequency"] > 0]
         if repeat.empty:
@@ -173,16 +183,33 @@ class GammaGamma:
                 "Gamma-Gamma needs customers with at least one repeat "
                 "transaction; this customer base has none"
             )
-        if (repeat["monetary_value"] <= 0).any():
-            # ln z̄ is undefined at zero, and a customer who nets nothing has
-            # no average spend to model. on_negative="net" is the only mode
-            # that drops non-positive buckets outright.
+        if (repeat["monetary_value"] < 0).any():
+            # Unreachable from CustomerBase.from_transactions, whose spend
+            # basis never nets an event below zero — so the summary was built
+            # by hand, and refusing beats modelling ln of a negative.
             raise ValueError(
-                "Gamma-Gamma requires a positive monetary_value for every "
-                "repeat buyer; rebuild the CustomerBase with on_negative="
-                "'net' so that non-positive transactions are not counted "
-                "as purchase events"
+                "Gamma-Gamma requires a non-negative monetary_value; this "
+                "summary carries negative average spend, which "
+                "CustomerBase.from_transactions cannot produce — check how "
+                "it was built"
             )
+        no_spend = repeat["monetary_value"] == 0
+        if no_spend.any():
+            warnings.warn(
+                f"{int(no_spend.sum())} of {len(repeat)} repeat buyers have "
+                "monetary_value = 0: no positively netted repeat spend, so "
+                "they carry no information about spend and are left out of "
+                "the Gamma-Gamma fit. predict() still scores every customer.",
+                UserWarning,
+                stacklevel=3,
+            )
+            repeat = repeat[~no_spend]
+            if repeat.empty:
+                raise ValueError(
+                    "Gamma-Gamma needs at least one repeat buyer with "
+                    "positive monetary_value; every repeat buyer in this "
+                    "customer base netted to zero spend"
+                )
         return (
             repeat["frequency"].to_numpy(dtype=float),
             repeat["monetary_value"].to_numpy(dtype=float),

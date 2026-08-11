@@ -1,6 +1,6 @@
 [project]
 name = "clvkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "CLV engine and cohort-retention over a shared transaction-log contract."
 readme = "README.md"
 authors = [
@@ -13,7 +13,10 @@ requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 dependencies = [
-    "matplotlib>=3.11.0",
+    # Floor held at 3.10.0 (suite validated at exactly that version) because
+    # pymc-marketing 1.0.0 caps matplotlib<3.11; a higher floor would make the
+    # graduation path the README recommends impossible in a shared environment.
+    "matplotlib>=3.10.0",
     "numpy>=2.3",
     "pandas>=3.0.3",
     "scipy>=1.16",

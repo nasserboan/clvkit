@@ -37,26 +37,39 @@ canonical papers don't address. Practitioner conventions vary:
    positive.
 4. Refuse to guess — force the caller to clean the data first.
 
-**Our choice.** `on_negative="net"` is the default: transactions are netted
-per customer per `time_unit` bucket, and a bucket only counts as a purchase
-event if it nets to a positive amount. `on_negative="drop"` discards negative
-rows before aggregation (a purchase followed by a same-bucket refund still
-counts, netted). `on_negative="raise"` refuses the data and forces an
-explicit choice.
+**Our choice.** `on_negative` shapes `monetary_value` and nothing else.
+Under every mode, a bucket containing at least one transaction with a
+non-negative amount is a purchase event, and `frequency`, `recency` and `T`
+are computed from those events; switching the policy never moves them.
+`on_negative="net"` (the default) nets each bucket's transactions and
+carries the result into `monetary_value` only when it stays positive; a
+bucket netting to zero or below keeps its place in the timing columns and
+contributes no spend. `on_negative="drop"` discards negative rows before
+summing spend. `on_negative="raise"` refuses the data and forces an explicit
+choice. Whenever a policy nets a bucket away, discards rows, or erases a
+customer whose every transaction is negative, the summary says so with a
+counted warning. A bucket containing only refunds is not a purchase event
+under any mode: netting corroborates spend, it never fabricates a purchase.
 
-**Why.** `net` matches what a same-`time_unit` collapse (below) already
-implies: a customer's activity within one bucket is one economic event, and a
-refund that fully cancels a purchase within that event is not a purchase. It
-also fails safe — netting only ever removes purchase events it can't
-corroborate, it never fabricates one — and it gets a first-time user to
-useful output immediately instead of forcing a data-cleanup step before the
-library will run. A customer whose entire history nets to zero or negative
-has no event this policy will vouch for as a real purchase, so they don't
-get a row in the RFM table at all (the same as if they'd never transacted) —
-this is erasure, not a `frequency=0` placeholder, and is a deliberate
-consequence of the policy, not a bug. `on_negative="raise"` stays available
-for anyone who wants refunds surfaced explicitly rather than silently
-netted.
+**Why.** Purchase timing is observed fact; spend is what the policy exists
+to clean. A refund is evidence about money, not evidence that the purchase
+beside it never happened, so it may empty an event's spend but not the
+event. Netting per bucket still matches what the same-`time_unit` collapse
+(below) implies — a customer's activity within one bucket is one economic
+event — and it still gets a first-time user to useful output without a
+data-cleanup step first. A customer with no non-negative transaction at all
+has no purchase to anchor `T` to, so they still get no row; the difference
+is that the warning now counts them out loud.
+
+Until v0.1.x the net filter applied to the timing basis too, and this page
+defended the result as deliberate. It was measured and reversed: on CDNOW
+the default silently removed 8 of 2,357 customers whose only transaction is
+$0.00, removed by a parameter named "negative", and moved the fitted BG/NBD
+log-likelihood from −9582.429 to −9578.197. A refund landing in the same
+bucket as a real purchase deleted that purchase from `frequency`, `recency`
+and `T` entirely. Our own golden test carried the workaround
+(`amount_col=None`) in a comment, which is a knowledge-base fix for a
+runtime problem — the definition of the wrong default.
 
 ---
 

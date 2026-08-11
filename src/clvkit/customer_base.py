@@ -139,6 +139,18 @@ class CustomerBase:
 
             CustomerBase.from_transactions(log, time_unit="W", collapse="D")
 
+        `on_negative` shapes `monetary_value` and nothing else. Under every
+        mode, a period containing at least one transaction with a non-negative
+        amount is a purchase event, and `frequency`, `recency` and `T` are
+        computed from those events — switching the policy never moves them.
+        `"net"` (the default) nets each period's transactions and carries the
+        result into `monetary_value` only when it stays positive; `"drop"`
+        discards negative rows before summing spend; `"raise"` refuses a log
+        containing any negative amount. Whenever a policy nets a period away,
+        discards rows, or erases a customer whose every transaction is
+        negative, a warning says so with a count — as does a row with no
+        customer id, which cannot join a per-customer summary.
+
         ``engine="dask"`` takes a ``dask.dataframe.DataFrame`` instead of a
         pandas one and never holds the whole log in memory. The summary it
         returns is an ordinary pandas-backed ``CustomerBase`` — per-customer
@@ -171,6 +183,22 @@ class CustomerBase:
             df[datetime_col], dd, format=datetime_format
         )
 
+        # A row with no customer id cannot join a per-customer summary, and
+        # groupby would drop it without a word — in a weekly scoring job that
+        # is rows silently missing from the scored table.
+        null_id_rows, total_rows = _engine.counts(
+            (df[customer_id_col].isna().sum(), df.shape[0]), dd
+        )
+        if null_id_rows:
+            warnings.warn(
+                f"{null_id_rows} of {total_rows} rows have no "
+                f"{customer_id_col!r} and were dropped: the summary is "
+                "per-customer, and a row with no customer id cannot join one.",
+                UserWarning,
+                stacklevel=2,
+            )
+            df = df[df[customer_id_col].notna()]
+
         last_transaction = df[datetime_col].max()
         if dd is not None:
             last_transaction = last_transaction.compute()
@@ -196,48 +224,73 @@ class CustomerBase:
                     f"CustomerBase.split(calibration_period_end=...)."
                 )
 
-        if has_monetary:
-            if on_negative == "raise":
-                any_negative = (df[amount_col] < 0).any()
-                if dd is not None:
-                    any_negative = any_negative.compute()
-                if any_negative:
-                    raise ValueError(
-                        "negative amounts found in transactions; "
-                        "pass on_negative='net' or 'drop' to handle them"
-                    )
-            if on_negative == "drop":
-                df = df[df[amount_col] >= 0]
+        if has_monetary and on_negative == "raise":
+            any_negative = (df[amount_col] < 0).any()
+            if dd is not None:
+                any_negative = any_negative.compute()
+            if any_negative:
+                raise ValueError(
+                    "negative amounts found in transactions; "
+                    "pass on_negative='net' or 'drop' to handle them"
+                )
 
         df["_bucket"] = _engine.buckets(df[datetime_col], collapse, dd)
 
         if collapse_was_implicit and _is_finer_than(_CANONICAL_COLLAPSE, collapse):
             cls._warn_if_the_grain_ate_purchases(df, customer_id_col, collapse, dd)
 
+        # One event construction for both engines — every operation in it is
+        # API-identical in pandas and Dask, so there is no second set of
+        # policy semantics to drift from the first.
+        if has_monetary:
+            # The timing basis: a period counts as a purchase event when at
+            # least one of its transactions has a non-negative amount, under
+            # every on_negative mode. A period of pure refunds corroborates
+            # no purchase, and a refund never erases the event it lands next
+            # to — the policy shapes the spend column below, nothing here.
+            vouched = df[df[amount_col] >= 0]
+            timing = vouched[[customer_id_col, "_bucket"]].drop_duplicates()
+
+            # The monetary basis: per-period spend under the policy. A NaN
+            # after the merge marks an event the policy excluded from spend
+            # while its timing stayed; `_summarize` reads it as exactly that.
+            spend = vouched if on_negative == "drop" else df
+            sums = (
+                spend.groupby([customer_id_col, "_bucket"])[amount_col]
+                .sum()
+                .reset_index()
+            )
+            if on_negative == "net":
+                sums = sums[sums[amount_col] > 0]
+            events = timing.merge(sums, on=[customer_id_col, "_bucket"], how="left")
+
+            cls._warn_what_the_policy_took(
+                df,
+                timing,
+                spend,
+                events,
+                customer_id_col=customer_id_col,
+                amount_col=amount_col,
+                on_negative=on_negative,
+                dd=dd,
+            )
+        else:
+            events = df[[customer_id_col, "_bucket"]].drop_duplicates()
+
         if dd is not None:
             # The whole reduction stays lazy down to one row per customer, and
             # only that lands in memory. There is no event frame to keep.
             summary = cls._summarize_dask(
-                df,
+                events,
                 customer_id_col,
                 amount_col,
                 has_monetary,
-                on_negative,
                 observation_period_end,
                 collapse,
                 ratio,
             )
             events = None
         else:
-            if has_monetary:
-                events = df.groupby(
-                    [customer_id_col, "_bucket"], sort=False, as_index=False
-                )[amount_col].sum()
-                if on_negative == "net":
-                    events = events[events[amount_col] > 0]
-            else:
-                events = df[[customer_id_col, "_bucket"]].drop_duplicates()
-
             summary = cls._summarize(
                 events,
                 customer_id_col,
@@ -305,6 +358,68 @@ class CustomerBase:
         )
 
     @staticmethod
+    def _warn_what_the_policy_took(
+        df: pd.DataFrame,
+        timing: pd.DataFrame,
+        spend: pd.DataFrame,
+        events: pd.DataFrame,
+        *,
+        customer_id_col: str,
+        amount_col: str,
+        on_negative: OnNegative,
+        dd: "ModuleType | None" = None,
+    ) -> None:
+        """Count whatever the monetary policy excluded, and say so.
+
+        Silence here was the original bug: a summary missing customers still
+        looks plausible, still fits, still scores — it is just missing
+        customers. Same counted-warning pattern as the collapse warning above,
+        and the counts are materialised in one batch so a Dask log is not
+        read once per number.
+        """
+        customers, customers_kept, timing_events, no_spend_events, spend_rows, rows = (
+            _engine.counts(
+                (
+                    df[customer_id_col].nunique(),
+                    timing[customer_id_col].nunique(),
+                    timing.shape[0],
+                    events[amount_col].isna().sum(),
+                    spend.shape[0],
+                    df.shape[0],
+                ),
+                dd,
+            )
+        )
+
+        erased = customers - customers_kept
+        if erased:
+            warnings.warn(
+                f"on_negative={on_negative!r} dropped {erased} of {customers} "
+                "customers entirely: none of their transactions has a "
+                "non-negative amount, so no purchase event anchors their "
+                "history.",
+                UserWarning,
+                stacklevel=3,
+            )
+        if on_negative == "net" and no_spend_events:
+            warnings.warn(
+                f"on_negative='net' netted {no_spend_events} of {timing_events} "
+                "purchase events to a non-positive total. They keep their "
+                "place in frequency, recency and T; they contribute no spend "
+                "to monetary_value.",
+                UserWarning,
+                stacklevel=3,
+            )
+        if on_negative == "drop" and rows - spend_rows:
+            warnings.warn(
+                f"on_negative='drop' discarded {rows - spend_rows} of {rows} "
+                "transactions with negative amounts from the spend basis. "
+                "frequency, recency and T are unaffected.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+    @staticmethod
     def _summarize(
         events: pd.DataFrame,
         customer_id_col: str,
@@ -355,52 +470,48 @@ class CustomerBase:
             is_repeat = (
                 events_sorted.groupby(customer_id_col, sort=False).cumcount() > 0
             )
+            # A NaN amount is an event the monetary policy excluded from the
+            # spend basis while its timing stayed. `mean` skips it, and a
+            # customer with no qualifying repeat spend lands on 0.0, the same
+            # figure a one-time buyer gets.
             monetary = (
                 events_sorted[is_repeat]
                 .groupby(customer_id_col, sort=False)[amount_col]
                 .mean()
             )
-            summary["monetary_value"] = monetary.reindex(summary.index, fill_value=0.0)
+            summary["monetary_value"] = monetary.reindex(summary.index).fillna(0.0)
 
         return summary
 
     @staticmethod
     def _summarize_dask(
-        df: "DaskDataFrame",
+        events: "DaskDataFrame",
         customer_id_col: str,
         amount_col: str | None,
         has_monetary: bool,
-        on_negative: OnNegative,
         observation_period_end: pd.Timestamp,
         collapse: str,
         ratio: int = 1,
     ) -> pd.DataFrame:
         """The same summary, reduced lazily and materialised once.
 
-        Two reductions, and the second is not a Dask reimplementation of
-        `_summarize` — it *is* `_summarize`. Shuffling on the customer id puts
-        every one of a customer's events into a single partition, and every
-        figure in the summary depends on one customer's events alone, so the
-        per-partition answer is the global answer. That is what makes a second
-        engine safe: there is no second set of semantics to drift from the
-        first.
+        Takes the per-bucket events `from_transactions` built — the event
+        construction is shared with the pandas path, so the policy semantics
+        cannot drift between engines — and the reduction is not a Dask
+        reimplementation of `_summarize` either: it *is* `_summarize`.
+        Shuffling on the customer id puts every one of a customer's events
+        into a single partition, and every figure in the summary depends on
+        one customer's events alone, so the per-partition answer is the
+        global answer.
 
-        An earlier draft did reimplement it, with a Dask `groupby.transform`
-        standing in for the `cumcount` that finds a customer's repeat
-        purchases. It agreed with pandas on three partitions and silently
-        stopped aligning on thirty-two.
+        An earlier draft did reimplement the reduction, with a Dask
+        `groupby.transform` standing in for the `cumcount` that finds a
+        customer's repeat purchases. It agreed with pandas on three
+        partitions and silently stopped aligning on thirty-two.
 
         Peak memory is one partition of collapsed events plus the finished
         summary; the raw log is never held whole.
         """
-        if has_monetary:
-            events = df.groupby([customer_id_col, "_bucket"])[amount_col].sum()
-            events = events.reset_index()
-            if on_negative == "net":
-                events = events[events[amount_col] > 0]
-        else:
-            events = df[[customer_id_col, "_bucket"]].drop_duplicates()
-
         events = events.shuffle(on=customer_id_col)
         summarize = partial(
             CustomerBase._summarize,
@@ -486,8 +597,11 @@ class CustomerBase:
             grouped["_bucket"].count().reindex(holdout.index, fill_value=0)
         )
         if self.has_monetary:
+            # `fillna` as well as `reindex`: a customer whose every holdout
+            # event was excluded from the spend basis has a NaN mean, not a
+            # missing row.
             holdout["monetary_value_holdout"] = (
-                grouped[self._amount_col].mean().reindex(holdout.index, fill_value=0.0)
+                grouped[self._amount_col].mean().reindex(holdout.index).fillna(0.0)
             )
         duration = obs_bucket.ordinal - cal_bucket.ordinal
         holdout["duration_holdout"] = duration if ratio == 1 else duration / ratio

@@ -304,7 +304,7 @@ wheels = [
 
 [[package]]
 name = "clvkit"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
@@ -342,7 +342,7 @@ docs = [
 requires-dist = [
     { name = "dask", extras = ["dataframe"], marker = "extra == 'dask'", specifier = ">=2025.1.0" },
     { name = "distributed", marker = "extra == 'dask'", specifier = ">=2025.1.0" },
-    { name = "matplotlib", specifier = ">=3.11.0" },
+    { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "numpy", specifier = ">=2.3" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "scipy", specifier = ">=1.16" },

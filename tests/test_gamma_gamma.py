@@ -195,6 +195,47 @@ def test_fit_rejects_a_customer_base_with_no_repeat_buyers():
         GammaGamma().fit(cb)
 
 
+def test_a_repeat_buyer_with_zero_spend_is_left_out_of_the_fit_with_a_count():
+    # Timing and spend are decoupled in CustomerBase, so a repeat buyer can
+    # carry monetary_value = 0: a real repeat purchase, refunded the same day.
+    # ln z̄ is undefined there — the buyer leaves the likelihood, counted.
+    log = _log(
+        [
+            ("A", "2020-01-01", 10),
+            ("A", "2020-01-08", 20),
+            ("B", "2020-01-01", 10),
+            ("B", "2020-01-08", 5),
+            ("B", "2020-01-08", -5),
+        ]
+    )
+    with pytest.warns(UserWarning, match="netted 1 of 4 purchase events"):
+        cb = CustomerBase.from_transactions(log)
+
+    with pytest.warns(UserWarning, match="1 of 2 repeat buyers have monetary_value"):
+        frequency, monetary_value = GammaGamma._repeat_buyers(cb)
+
+    assert list(frequency) == [1.0]
+    assert list(monetary_value) == [20.0]
+
+
+def test_fit_refuses_when_every_repeat_buyer_netted_to_zero_spend():
+    log = _log(
+        [
+            ("B", "2020-01-01", 10),
+            ("B", "2020-01-08", 5),
+            ("B", "2020-01-08", -5),
+        ]
+    )
+    with pytest.warns(UserWarning, match="netted 1 of 2 purchase events"):
+        cb = CustomerBase.from_transactions(log)
+
+    with (
+        pytest.warns(UserWarning, match="1 of 1 repeat buyers"),
+        pytest.raises(ValueError, match="positive monetary_value"),
+    ):
+        GammaGamma().fit(cb)
+
+
 def test_predict_before_fit_is_an_error():
     with pytest.raises(RuntimeError, match="not fitted"):
         GammaGamma().predict()
