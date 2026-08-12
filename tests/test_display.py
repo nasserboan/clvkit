@@ -121,6 +121,12 @@ class TestNotesFireOnlyWhenThereIsSomethingToSay:
         )
         assert "54 repeat buyers carry the likelihood" in _note_block(str(base))
 
+    def test_the_thin_repeat_note_points_at_parameter_uncertainty(self):
+        base = CustomerBase.from_transactions(
+            _big(repeat_share=0.9, n=60), time_unit="D"
+        )
+        assert ".parameter_uncertainty()" in _note_block(str(base))
+
     def test_a_deep_repeat_base_is_not(self):
         base = CustomerBase.from_transactions(_big(repeat_share=0.9), time_unit="D")
         assert "carry the likelihood" not in _note_block(str(base))

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from clvkit._result import Prediction
+    from clvkit.clv._bootstrap import ParameterUncertainty
     from clvkit.clv.clv import CLVResult
     from clvkit.clv.independence import IndependenceCheck
     from clvkit.cohort.matrix import CohortMatrix
@@ -61,6 +62,41 @@ def plot_prediction(
     ax.set_xlabel(prediction.description)
     ax.set_ylabel("Customers")
     ax.set_title(prediction.description)
+    return ax
+
+
+def plot_parameter_uncertainty(
+    result: "ParameterUncertainty",
+    *,
+    ax: "Axes | None" = None,
+    **kwargs,
+) -> "Axes":
+    """Draw each fitted parameter as a point with its bootstrap interval.
+
+    One row per parameter, the estimate marked and the percentile interval as a
+    horizontal bar, so a reader sees at a glance which parameters the data pins
+    down and which it barely constrains.
+    """
+    if ax is None:
+        _, ax = plt.subplots()
+
+    frame = result.to_pandas()
+    estimate = frame["estimate"].to_numpy(dtype=float)
+    positions = np.arange(len(frame))
+    # A percentile interval need not straddle the point estimate, so errorbar's
+    # (non-negative) half-widths are clamped rather than trusted to be positive.
+    lower = np.clip(estimate - frame["ci_low"].to_numpy(dtype=float), 0.0, None)
+    upper = np.clip(frame["ci_high"].to_numpy(dtype=float) - estimate, 0.0, None)
+
+    ax.errorbar(estimate, positions, xerr=[lower, upper], fmt="o", capsize=4, **kwargs)
+    ax.set_yticks(positions, list(frame.index))
+    ax.invert_yaxis()
+    ax.set_xlabel("Parameter value")
+    ax.set_title(
+        f"{result.model_name} parameters: "
+        f"{result.confidence:.0%} bootstrap interval "
+        f"({result.n_replicates} replicates)"
+    )
     return ax
 
 

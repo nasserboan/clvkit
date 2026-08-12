@@ -13,6 +13,7 @@ want an option the method shortcut doesn't expose, or an axis to draw onto.
    plot_clv
    plot_prediction
    plot_probability_alive
+   plot_parameter_uncertainty
    plot_cohort_matrix
    plot_survival_curve
    plot_independence

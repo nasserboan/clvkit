@@ -37,6 +37,32 @@ expect next, and how likely they're still around.
 customer who spent heavily and then went silent scores high on history and low
 here.
 
+How sure are those four numbers?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``fit`` hands back four point estimates and nothing beside them, so a parameter
+the data pins down looks exactly like one it barely constrains.
+``parameter_uncertainty`` runs a parametric bootstrap: simulate ``n`` synthetic
+customer bases from the fitted parameters, refit the model on each, and report
+the spread as a standard error and a percentile interval per parameter.
+
+.. code:: python
+
+   unc = bg.parameter_uncertainty(n=100, seed=42)
+   unc.to_pandas()   # estimate, se, ci_low, ci_high per parameter
+   unc.plot()        # each estimate drawn with its interval
+
+Expect the intervals to be honest rather than comforting. On the CDNOW
+calibration base ``r`` comes back tight, 0.243 inside [0.219, 0.269], while the
+dropout pair doesn't: ``a`` at 0.793 spans [0.518, 1.184] and ``b`` at 2.426
+spans [1.532, 3.934]. Those wide intervals are the model saying 2,357 customers
+only weakly identify where dropout risk sits, which is exactly what the method
+exists to show.
+
+It's opt-in and adds no dependency. Nothing runs until you call it, and the
+price is ``n`` refits, about 30 seconds at ``n=100`` on CDNOW. ``MBGNBD`` has
+the same method returning the same result type.
+
 .. note::
 
    **Assumption.** Purchases are Poisson while alive, and dropout can only follow

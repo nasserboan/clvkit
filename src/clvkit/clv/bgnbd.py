@@ -24,6 +24,7 @@ from scipy.optimize import OptimizeResult, minimize
 from scipy.special import gammaln, hyp2f1, logsumexp
 
 from clvkit._result import Prediction
+from clvkit.clv._bootstrap import ParameterUncertainty, parametric_bootstrap
 from clvkit.customer_base import CustomerBase
 
 _PARAM_NAMES = ("r", "alpha", "a", "b")
@@ -174,6 +175,59 @@ def _conditional_expected_purchases(
     )
 
 
+def _simulate_summary(
+    r: float,
+    alpha: float,
+    a: float,
+    b: float,
+    *,
+    T: np.ndarray,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Draw ``(frequency, recency)`` for customers with observed tenures ``T``.
+
+    The BG/NBD generative story of section 3, conditioned on each customer's
+    observed window: a purchase rate ``lambda ~ Gamma(r, 1/alpha)`` and a dropout
+    probability ``p ~ Beta(a, b)`` per customer, then a Poisson purchase stream a
+    ``Bernoulli(p)`` draw can end after any repeat purchase. The first (index)
+    purchase sits at time zero and is never a dropout occasion — that is the one
+    line MBG/NBD changes.
+
+    Simulated in continuous time and *not* re-collapsed to a daily grain: the
+    model itself is continuous, and the daily collapse is a data-cleaning step on
+    real logs, not part of the likelihood the bootstrap measures. ``T`` arrives
+    in the fitted base's own ``time_unit``, and ``lambda`` was fit in that unit,
+    so no rescaling is needed.
+    """
+    n = len(T)
+    # shape < 1 can underflow to exactly 0; a zero rate is an infinite scale and
+    # an infinite inter-purchase gap. Clamp so such a customer simply never
+    # repeats instead of poisoning the draw with inf/nan.
+    rate = np.maximum(rng.gamma(shape=r, scale=1.0 / alpha, size=n), 1e-12)
+    dropout = rng.beta(a, b, size=n)
+
+    elapsed = np.zeros(n)
+    frequency = np.zeros(n)
+    recency = np.zeros(n)
+    alive = np.ones(n, dtype=bool)
+
+    # One iteration per purchase occasion, over the shrinking alive set — the
+    # loop runs about as many times as the busiest customer has repeats, not n
+    # times, so it stays cheap on a real base.
+    while alive.any():
+        idx = np.nonzero(alive)[0]
+        elapsed[idx] += rng.exponential(1.0 / rate[idx])
+        made = idx[elapsed[idx] <= T[idx]]
+        alive[idx[elapsed[idx] > T[idx]]] = False
+
+        frequency[made] += 1
+        recency[made] = elapsed[made]
+        # A dropout occasion follows a repeat purchase, never the first one.
+        alive[made[rng.random(len(made)) < dropout[made]]] = False
+
+    return frequency, recency
+
+
 class BGNBD:
     """The BG/NBD transaction-flow model.
 
@@ -273,6 +327,52 @@ class BGNBD:
             description="Probability alive",
             plot_data=summary[["frequency", "recency", "T"]],
             plot_time_unit=self.time_unit_ or "",
+        )
+
+    def parameter_uncertainty(
+        self, *, n: int = 200, seed: int | None = None, confidence: float = 0.95
+    ) -> ParameterUncertainty:
+        """Bootstrap standard errors and intervals for ``(r, alpha, a, b)``.
+
+        A parametric bootstrap: ``n`` synthetic customer bases are drawn from the
+        fitted parameters — each customer keeping their observed tenure — the
+        model refit on each, and the spread reported per parameter. Expect wide
+        intervals on ``a`` and ``b`` even on a large base; that weak
+        identification is the honest result, not a bug. Reproducible from
+        ``seed``; costs ``n`` refits, run serially.
+        """
+        if self.params_ is None:
+            raise RuntimeError(_NOT_FITTED)
+        return parametric_bootstrap(self, n=n, seed=seed, confidence=confidence)
+
+    def _simulate(self, rng: np.random.Generator) -> CustomerBase:
+        """A synthetic CustomerBase drawn from the fitted parameters.
+
+        Conditions on the base fitted on: every customer keeps their observed
+        tenure ``T``, and the synthetic base carries the same ``time_unit`` and
+        ``collapse``, so the refit is comparable to the original.
+        """
+        r, alpha, a, b = self._fitted_params()
+        cb = self._cb
+        if cb is None:
+            raise RuntimeError(_NOT_FITTED)
+
+        observed = cb.to_pandas()
+        T = observed["T"].to_numpy(dtype=float)
+        frequency, recency = _simulate_summary(r, alpha, a, b, T=T, rng=rng)
+
+        summary = pd.DataFrame(
+            {"frequency": frequency, "recency": recency, "T": T}, index=observed.index
+        )
+        return CustomerBase(
+            summary,
+            time_unit=cb.time_unit,
+            collapse=cb.collapse,
+            observation_period_end=cb.observation_period_end,
+            has_monetary=False,
+            # Inert here: on_negative shapes monetary_value only, and this
+            # synthetic base carries no amounts. The refit never reads it.
+            on_negative="net",
         )
 
     def _fitted_params(self) -> tuple[float, float, float, float]:

@@ -1,7 +1,13 @@
-# Runs the suite on every push and pull request, so a red test blocks a merge
-# rather than only surfacing at release time (publish.yml fires on `v*` tags).
-# The golden tests reproduce the published Fader-Hardie CDNOW estimates, so this
-# is also what keeps the README's trust table honest.
+# Runs on every push and pull request, so a red check blocks a merge rather than
+# only surfacing at release time (publish.yml fires on `v*` tags). The golden
+# tests reproduce the published Fader-Hardie CDNOW estimates, so this is also
+# what keeps the README's trust table honest.
+#
+# Four parallel jobs rather than one sequential run: a failure names its own axis
+# (lint vs unit vs dask vs notebooks) in the checks list instead of hiding in one
+# long log, and the slow notebook job no longer gates feedback on the fast ones.
+# Each job repeats the checkout/setup-uv/uv-sync preamble; for four jobs that is
+# cheaper to read than a shared composite action is to maintain.
 name: Test
 
 on:
@@ -11,7 +17,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  code-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,19 +25,39 @@ jobs:
       # major tags only up to v7, so `@v8` failed to resolve at all — the error
       # this workflow's first run produced.
       - uses: astral-sh/setup-uv@v9.0.0
-      # The suite must pass on the light dependency set that `pip install
-      # clvkit` gives you — four runtime dependencies, no extras. The dask
-      # tests skip themselves here, which is half of what makes `dask` optional
-      # rather than a fifth dependency wearing a disguise.
       - run: uv sync
       - run: uv run ruff check
       - run: uv run ruff format --check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v9.0.0
+      # The suite must pass on the light dependency set that `pip install clvkit`
+      # gives you — four runtime dependencies, no extras. The dask tests skip
+      # themselves here, which is half of what makes `dask` optional rather than
+      # a fifth dependency wearing a disguise.
+      - run: uv sync
       - run: uv run pytest
+
+  dask:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v9.0.0
       # The other half. A second engine that quietly disagreed with the first
-      # would be worse than no second engine, so the cross-engine equality
-      # tests get their own step rather than living behind a skip nobody reads.
+      # would be worse than no second engine, so the cross-engine equality tests
+      # get their own job rather than living behind a skip nobody reads.
       - run: uv sync --extra dask
       - run: uv run pytest tests/test_dask_engine.py
+
+  notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v9.0.0
+      - run: uv sync
       # The Online Retail II archive is 43 MB and fetched from UCI, which is the
       # only third party this build depends on being up. Caching it keyed on the
       # URL means one download for the life of that URL, instead of one per push
@@ -45,7 +71,7 @@ jobs:
       # the build on the first exception, so the documented examples cannot rot
       # into code that no longer runs against the library.
       #
-      # A separate step from `pytest` above because `testpaths = ["tests"]`
+      # A separate job from the unit `pytest` because `testpaths = ["tests"]`
       # deliberately scopes bare discovery, and because these need a wall-clock
       # budget the unit suite does not: 1.07M rows of Excel take ~20s to parse
       # before the first cohort matrix is built.
