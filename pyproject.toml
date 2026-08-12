@@ -1,6 +1,6 @@
 [project]
 name = "clvkit"
-version = "0.2.0"
+version = "0.2.1"
 description = "CLV engine and cohort-retention over a shared transaction-log contract."
 readme = "README.md"
 authors = [
