@@ -12,3 +12,15 @@ is still active.
 
    BGNBD
    MBGNBD
+
+``parameter_uncertainty`` on either model returns a ``ParameterUncertainty``:
+one row per parameter with the estimate, its bootstrap standard error and a
+percentile interval, with ``to_pandas``, ``to_json`` and ``plot``.
+
+.. currentmodule:: clvkit.clv
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ParameterUncertainty

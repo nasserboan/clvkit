@@ -176,7 +176,8 @@ def _notes(cb: "CustomerBase", n: int, n_repeat: int) -> list[str]:
     if n_repeat and n_repeat < _THIN_REPEAT_BASE:
         notes.append(
             f"only {n_repeat:,} repeat buyers carry the likelihood - expect "
-            "wide parameter uncertainty"
+            "wide parameter uncertainty; fit a model and call "
+            ".parameter_uncertainty() to quantify it"
         )
     return notes
 

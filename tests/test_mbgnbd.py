@@ -280,7 +280,7 @@ def test_the_surface_is_interchangeable_with_bgnbd():
     # `CLV(transaction_model=MBGNBD())`, say — without learning a new API.
     # Same three verbs, same parameters, no aliases. (Return annotations
     # differ, and should: each `fit` hands back its own type.)
-    verbs = ("fit", "predict", "probability_alive")
+    verbs = ("fit", "predict", "probability_alive", "parameter_uncertainty")
 
     for verb in verbs:
         assert (
